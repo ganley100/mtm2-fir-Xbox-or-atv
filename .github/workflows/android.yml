@@ -65,10 +65,12 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
             "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" "platforms;android-34" > /dev/null
 
+      # Before fetch-deps: setup-gradle checks every gradle-wrapper.jar in the
+      # workspace, and SDL's sample project (unused here) has one it does not know.
+      - uses: gradle/actions/setup-gradle@v4
+
       - name: SDL2 and SDL2_ttf
         run: mtm/android/fetch-deps.sh
-
-      - uses: gradle/actions/setup-gradle@v4
 
       - name: Build the APK (no lift)
         working-directory: mtm/android
