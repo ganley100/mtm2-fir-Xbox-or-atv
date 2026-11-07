@@ -23,7 +23,7 @@ $built = "$here\build\$Variant\mtm"
 $layout = "$here\build\layout-$Variant"
 $outDir = "$here\out"
 foreach ($f in 'mtm.exe', 'SDL2.dll') {
-  if (-not (Test-Path "$built\$f")) { throw "no $built\$f: run xbox\build.ps1 -Variant $Variant first" }
+  if (-not (Test-Path "$built\$f")) { throw "no $built\${f}: run xbox\build.ps1 -Variant $Variant first" }
 }
 
 $kits = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
