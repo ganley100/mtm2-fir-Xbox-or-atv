@@ -87,11 +87,29 @@ does nothing. A Quick start (`Setup.cmd`) is not written yet; see
 ```
 mtm [--run] [--headless] [--record out.mp4] [--frames N] [--shot N:file.bmp]
     [--key NAME@MS[+HOLD]] [--click X,Y@MS] [--game game] [--watchdog S]
+    [--pad controller.ini] [--no-pad]
     [--native-trace] [--callbacks] [--ddraw-trace]
 ```
 
 Without `--run` it only maps and binds the image (a dry run). `--headless`
 draws nothing on screen; `--record` pipes frames to ffmpeg at 30 fps.
+
+## Controller
+
+An Xbox-style controller (anything XInput sees: Xbox 360, One and Series
+pads, and most others in XInput mode) works in a normal windowed run. The
+game itself only reads the keyboard and mouse, so the host turns each
+button, trigger and stick direction into a key, as set in
+[`config/controller.ini`](config/controller.ini). The build copies that file
+beside `mtm.exe`, which is where it is read from (`--pad FILE` picks another,
+`--no-pad` turns the controller off; headless runs never use it).
+
+Out of the box: RT throttle, LT brake/reverse, left stick or D-pad steer,
+A is ENTER, B and START are ESC. **BACK** switches to cursor mode, where the
+sticks move the mouse pointer over the game's window and A/B click, for the
+title menu and Driver Check-in; BACK again goes back to driving. Gears,
+camera and the other race keys are left free in the file to map to the
+game's own key list.
 
 ## Building from source
 

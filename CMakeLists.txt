@@ -24,7 +24,7 @@ if(NOT GEN_SOURCES)
   message(FATAL_ERROR "src/recomp/gen is empty -- run `py -3 run_lift.py` first")
 endif()
 
-set(HOST_SOURCES src/runtime/host.c src/runtime/ddraw.c src/runtime/present.c)
+set(HOST_SOURCES src/runtime/host.c src/runtime/ddraw.c src/runtime/present.c src/runtime/pad.c)
 add_executable(mtm
   ${HOST_SOURCES}
   ${PCRECOMP}/runtime/native32/native32.c
@@ -46,6 +46,12 @@ set(GEN_OPT "/O2" CACHE STRING "optimisation for the generated C")
 set_source_files_properties(${GEN_SOURCES} PROPERTIES COMPILE_OPTIONS "/w;${GEN_OPT}")
 set_source_files_properties(${HOST_SOURCES} PROPERTIES COMPILE_OPTIONS "/W3")
 target_link_libraries(mtm PRIVATE user32 gdi32 kernel32 advapi32 winmm dwmapi d3d11 dxgi dxguid)
+
+# The controller mapping goes beside mtm.exe, where pad.c looks for it. Copied
+# only when missing, so edits made to the build's copy survive a rebuild.
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/controller.ini")
+  file(COPY "${CMAKE_SOURCE_DIR}/config/controller.ini" DESTINATION "${CMAKE_BINARY_DIR}")
+endif()
 
 option(MTM_TRACE "record a ring buffer of lifted function entries" OFF)
 if(MTM_TRACE)

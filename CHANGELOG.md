@@ -21,6 +21,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
   window (the race's view inside the MDI frame), as real keys do, and
   `GetKeyState` sees the keys `--key` holds.
 
+- Controller support: an XInput pad drives the race and, in cursor mode
+  (BACK), moves the mouse over the menus. The mapping is
+  `config/controller.ini`, copied beside `mtm.exe` by the build; `--pad FILE`
+  and `--no-pad` on the command line.
+
 ### Fixed
 - Headless, a dialog that opens off the main window ("Before You Begin" opened
   on another monitor) is centred on it, so the recording shows it where it

@@ -22,6 +22,7 @@
 #include "recomp_trace.h"
 #include "ddraw_host.h"
 #include "present.h"
+#include "pad.h"
 
 extern const uint32_t mtm_entry_va;       /* recomp_dispatch.c */
 
@@ -81,11 +82,18 @@ static void shim_MessageBoxA(void) {
 static struct { int vk, x, y; DWORD at, hold; } g_in[MAX_INPUT];
 static int g_nin;
 static volatile LONG g_held[256];
-static int vk_of(const char* s) {
+int host_vk(const char* s) {
     static const struct { const char* n; int vk; } names[] = {
         {"UP", VK_UP}, {"DOWN", VK_DOWN}, {"LEFT", VK_LEFT}, {"RIGHT", VK_RIGHT},
         {"SPACE", VK_SPACE}, {"ENTER", VK_RETURN}, {"ESC", VK_ESCAPE}, {"SHIFT", VK_SHIFT},
-        {"CTRL", VK_CONTROL}, {"TAB", VK_TAB}, {"LBUTTON", VK_LBUTTON}};
+        {"CTRL", VK_CONTROL}, {"ALT", VK_MENU}, {"TAB", VK_TAB}, {"LBUTTON", VK_LBUTTON},
+        {"BACKSPACE", VK_BACK}, {"INSERT", VK_INSERT}, {"DELETE", VK_DELETE},
+        {"HOME", VK_HOME}, {"END", VK_END}, {"PGUP", VK_PRIOR}, {"PGDN", VK_NEXT},
+        {"PAUSE", VK_PAUSE},
+        {"NUM0", VK_NUMPAD0}, {"NUM1", VK_NUMPAD1}, {"NUM2", VK_NUMPAD2}, {"NUM3", VK_NUMPAD3},
+        {"NUM4", VK_NUMPAD4}, {"NUM5", VK_NUMPAD5}, {"NUM6", VK_NUMPAD6}, {"NUM7", VK_NUMPAD7},
+        {"NUM8", VK_NUMPAD8}, {"NUM9", VK_NUMPAD9},
+        {"NONE", 0}};
     for (int i = 0; i < (int)(sizeof names / sizeof names[0]); i++)
         if (!_stricmp(s, names[i].n)) return names[i].vk;
     if ((s[0] == 'F' || s[0] == 'f') && atoi(s + 1) >= 1 && atoi(s + 1) <= 12) return VK_F1 + atoi(s + 1) - 1;
@@ -96,7 +104,7 @@ static int parse_key(const char* arg) {
     char name[16];
     unsigned at = 0, hold = 100;
     if (g_nin >= MAX_INPUT || sscanf(arg, "%15[^@]@%u+%u", name, &at, &hold) < 2) return 0;
-    g_in[g_nin].vk = vk_of(name) & 0xFF;
+    g_in[g_nin].vk = host_vk(name) & 0xFF;
     g_in[g_nin].x = -1;
     g_in[g_nin].at = at;
     g_in[g_nin++].hold = hold;
@@ -154,6 +162,25 @@ static DWORD WINAPI input_thread(LPVOID p) {
     InterlockedDecrement(&g_held[vk]);
     PostMessageA(w, WM_KEYUP, vk, 0xC0000001u);
     return 0;
+}
+/* The focus window of the game's UI thread: where a real key would go. */
+static HWND key_target(void) {
+    HWND pop = GetLastActivePopup(ddh_window());
+    GUITHREADINFO gi = { sizeof gi };
+    return GetGUIThreadInfo(GetWindowThreadProcessId(pop, NULL), &gi) && gi.hwndFocus ? gi.hwndFocus : pop;
+}
+/* A key held and released from outside a script: the controller (pad.c). */
+void host_key(int vk, int down) {
+    vk &= 0xFF;
+    if (!vk || !ddh_window()) return;
+    HWND w = key_target();
+    if (down) {
+        InterlockedIncrement(&g_held[vk]);
+        PostMessageA(w, WM_KEYDOWN, vk, 1);
+    } else {
+        InterlockedDecrement(&g_held[vk]);
+        PostMessageA(w, WM_KEYUP, vk, 0xC0000001u);
+    }
 }
 static void shim_GetKeyState(void) {
     int vk = ARG(0) & 0xFF;
@@ -302,7 +329,8 @@ static DWORD WINAPI watchdog(LPVOID unused) {
 
 int main(int argc, char** argv) {
     const char* game = "game";
-    int run = 0, scale = 0;
+    int run = 0, scale = 0, pad = 1;
+    const char* pad_ini = NULL;
     ddh_opts_t o = { 0 };
     for (int i = 1; i < argc; i++) {
         int n = recomp_trace_arg(argc, argv, i);
@@ -312,6 +340,8 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--key") && i + 1 < argc) {
             if (!parse_key(argv[++i])) { fprintf(stderr, "bad --key %s\n", argv[i]); return 1; }
         }
+        else if (!strcmp(argv[i], "--pad") && i + 1 < argc) pad_ini = argv[++i];
+        else if (!strcmp(argv[i], "--no-pad")) pad = 0;
         else if (!strcmp(argv[i], "--click") && i + 1 < argc) {
             if (!parse_click(argv[++i])) { fprintf(stderr, "bad --click %s (want X,Y@MS)\n", argv[i]); return 1; }
         }
@@ -345,7 +375,8 @@ int main(int argc, char** argv) {
         else {
             printf("usage: mtm [--run] [--headless] [--record out.mp4] [--frames N]\n"
                    "             [--shot N:file.bmp] [--diff A,B] [--key NAME@MS[+HOLD]] [--click X,Y@MS]\n"
-                   "             [--scale N] [--game game] [--watchdog S] [--native-trace]\n"
+                   "             [--scale N] [--game game] [--pad controller.ini] [--no-pad]\n"
+                   "             [--watchdog S] [--native-trace]\n"
                    "             [--callbacks] [--ddraw-trace]\n");
             recomp_trace_help();
             return argv[i][1] == 'h' || argv[i][2] == 'h' ? 0 : 1;
@@ -380,6 +411,8 @@ int main(int argc, char** argv) {
     if (g_watchdog_s) CloseHandle(CreateThread(NULL, 0, watchdog, NULL, 0, NULL));
     for (int i = 0; i < g_nin; i++)
         CloseHandle(CreateThread(NULL, 0, input_thread, (LPVOID)(intptr_t)i, 0, NULL));
+    /* A controller, unless headless: a recording is the script's input only. */
+    if (pad && !g_headless) pad_start(pad_ini);
     printf("  entering 0x%08X\n\n", mtm_entry_va);
     fflush(stdout);
     native32_call_guest(mtm_entry_va, 0, NULL);
