@@ -247,6 +247,15 @@ static void text_trace(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp) {
 }
 static void dialog_trace(uint32_t hwnd, uint32_t id) { LOG("[dialog] %08X: resource %u", hwnd, id); }
 
+/* Every message, before its window procedure: the owner-draw DC (overrides.c),
+ * then the text trace when it is on. */
+void mtm_owner_draw_fix(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp);
+static int g_texttrace;
+static void proc_hook(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp) {
+    mtm_owner_draw_fix(hwnd, msg, wp, lp);
+    if (g_texttrace) text_trace(hwnd, msg, wp, lp);
+}
+
 /* MFC's front end uses the Windows arrow: show the cursor the guest set. */
 static int show_cursor(void) { return 1; }
 
@@ -397,7 +406,8 @@ int main(int argc, char** argv) {
         if (pad) g_pad_on = pad_sdl_start(pad_ini);
     }
     if (g_shots) hle_screen_frame_hook = shot;
-    if (getenv("MTM_TEXTTRACE")) hle_proc_hook = text_trace, hle_dialog_hook = dialog_trace;
+    hle_proc_hook = proc_hook;
+    if (getenv("MTM_TEXTTRACE")) g_texttrace = 1, hle_dialog_hook = dialog_trace;
     hle_set_pump_hook(pump);                  /* after hle_screen_open, which set its own */
 
     LOG("  entering 0x%08X", img.entry);

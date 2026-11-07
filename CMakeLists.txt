@@ -155,6 +155,16 @@ string(REPLACE "${DIRS_OLD}" "extern char mtm_font_dir[];\n    static const char
 if(ANDROID)
   string(REPLACE "\"DejaVuSans-Bold.ttf\" : \"DejaVuSans.ttf\"" "\"Roboto-Regular.ttf\" : \"Roboto-Regular.ttf\"" GDIDC "${GDIDC}")
 endif()
+# BitBlt and StretchBlt into a DC with a viewport or window origin: the rest
+# of gdidc.c (text, rectangles) moves by it, these two did not, and MTM2's
+# owner-drawn buttons are drawn through such a DC (overrides.c gives each
+# WM_DRAWITEM a window DC with its origin at the button).
+set(BLT_OLD "blt(d,(int)A32(1),(int)A32(2),")
+string(FIND "${GDIDC}" "${BLT_OLD}" AT)
+if(AT EQUAL -1)
+  message(FATAL_ERROR "gdidc.c's BitBlt has changed: update the origin rewrite in CMakeLists.txt")
+endif()
+string(REPLACE "${BLT_OLD}" "blt(d,(int)A32(1)+(d?d->vox-d->wox:0),(int)A32(2)+(d?d->voy-d->woy:0)," GDIDC "${GDIDC}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c.new" "${GDIDC}")
 configure_file("${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c.new" "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c" COPYONLY)
 list(APPEND HLE_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c")
