@@ -77,6 +77,17 @@ def is_pe(path):
 DEMO_SKIP = ('SETUP.EXE', 'SETUPENU.DLL', 'DSETUP.DLL', 'DSETUP16.DLL', 'DSETUP32.DLL')
 
 
+def quiet_desktop_warning(ini):
+    """dontWarnDesktopSize=1. The game warns, with an empty message box, when
+    the desktop is no bigger than its 640x480 window; the hosts here always
+    show its 640x480 scaled to the screen, so the warning means nothing."""
+    if not os.path.exists(ini):
+        return
+    lines = open(ini, encoding='latin-1').read().splitlines()
+    lines = ['dontWarnDesktopSize=1' if l.strip().lower().startswith('dontwarndesktopsize=') else l for l in lines]
+    open(ini, 'w', encoding='latin-1', newline='\r\n').write('\n'.join(lines) + '\n')
+
+
 def demo_installer(src, out):
     """The demo's self-extracting installer: its cabinet, unpacked, laid out."""
     import subprocess
@@ -111,6 +122,7 @@ def demo_installer(src, out):
             n += 1
     if not os.path.exists(os.path.join(out, 'Monster.exe')):
         sys.exit('no Monsterx.exe in the cabinet: is this the Monster Truck Madness 2 trial?')
+    quiet_desktop_warning(os.path.join(out, 'system', 'monsterx.ini'))
     return n
 
 
