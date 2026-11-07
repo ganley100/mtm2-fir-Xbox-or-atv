@@ -79,6 +79,25 @@ tools, CMake 3.20+, Ninja, and `ffmpeg` on PATH for `--record`.
    build\mtm.exe --run --headless --watchdog 125 --record out.mp4 --click 560,433@60000 --click 570,430@68000 --key ENTER@78000 --key UP@85000+38000
    ```
 
+### The 1998 demo
+
+Microsoft's free demo of Monster Truck Madness 2 is a separate, smaller
+`Monster.exe`, built the same way next to the full game. Every step takes
+`--demo` and keeps the demo's files apart (`game-demo\`, `work\demo\`,
+`src\recomp\gen-demo\`; see `tools/variant.py`):
+
+1. Run the demo's installer on any Windows PC, then copy what it installed
+   (give `--exe NAME` if its program is not called `Monster.exe`):
+   ```
+   py -3 tools\gamefiles.py --demo "C:\path\the\demo\installed\to"
+   ```
+2. `py -3 tools\catalog.py --demo`, then `py -3 run_lift.py --demo`.
+3. Build it into its own folder:
+   `set BUILD_DIR=build-demo& set CMAKE_ARGS=-DMTM_VARIANT=demo& build.cmd`.
+   `build-demo\mtm.exe --run` reads `game-demo\`.
+
+The demo has not been lifted or run yet.
+
 Use `py` rather than `python`: the Microsoft Store alias answers `python` and
 does nothing. A Quick start (`Setup.cmd`) is not written yet; see
 [ROADMAP.md](ROADMAP.md).

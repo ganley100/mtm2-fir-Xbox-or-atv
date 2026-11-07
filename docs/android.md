@@ -40,8 +40,19 @@ GitHub Actions (`.github/workflows/android.yml`) runs this build on every
 push that touches the Android or host code, with `mtm.noLift=ON` since the
 lift is never in the repository. Its APK is a build check, not the game.
 
-The APK is `android/app/build/outputs/apk/release/app-release.apk`. It is
-signed with the debug key so it installs as is.
+That builds two APKs, one per version of the game. Each one compiles its own
+lift, so give each version you build its lift first (`run_lift.py`,
+`run_lift.py --demo`):
+
+| APK | App | Needs |
+|---|---|---|
+| `app/build/outputs/apk/full/release/app-full-release.apk` | Monster Truck Madness 2 (`com.mtm2.recomp`) | `src/recomp/gen` |
+| `app/build/outputs/apk/demo/release/app-demo-release.apk` | Monster Truck Madness 2 Demo (`com.mtm2.recomp.demo`) | `src/recomp/gen-demo` |
+
+`./gradlew assembleFullRelease` or `./gradlew assembleDemoRelease` builds
+just one. They are separate apps with their own folders, so both can be on
+the TV at once. Both are signed with the debug key so they install as they
+are.
 
 Compiling the lift (2.46M lines of C) takes a while. Two settings help, in
 `android/gradle.properties` or with `-P` on the command line:
@@ -62,7 +73,11 @@ your own box art, run this before building:
 
 ```
 py -3 tools/make_banner.py boxart.jpg --top 12
+py -3 tools/make_banner.py --demo demoart.jpg     # the demo app's, if you want it different
 ```
+
+Without a banner of its own, the demo app uses yours. Without either, it
+uses the built-in one with a DEMO ribbon.
 
 It crops a 16:9 piece from the top of the picture, which on the box front
 is the title, above the ratings and publisher logos. It writes the crop to
@@ -72,7 +87,8 @@ That folder is gitignored, so the artwork stays out of the repository.
 ## Install and copy the game
 
 ```
-adb install -r app/build/outputs/apk/release/app-release.apk
+adb install -r app/build/outputs/apk/full/release/app-full-release.apk
+adb install -r app/build/outputs/apk/demo/release/app-demo-release.apk
 ```
 
 Start it once from the TV's home screen. It makes its game folder and then
@@ -82,6 +98,7 @@ and the videos:
 
 ```
 adb push game/. /sdcard/Android/data/com.mtm2.recomp/files/game/
+adb push game-demo/. /sdcard/Android/data/com.mtm2.recomp.demo/files/game/
 ```
 
 Optional, in the same folder:

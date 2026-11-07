@@ -1,5 +1,5 @@
-# Android TV APK: builds SDL2, SDL2_ttf, pcrecomp's win32hle and the portable
-# host for armeabi-v7a and packages the APK.
+# Android TV APKs: builds SDL2, SDL2_ttf, pcrecomp's win32hle and the portable
+# host for armeabi-v7a and packages two APKs, the full game and the demo.
 #
 # The lifted game (src/recomp/gen) is made from your own Monster.exe and is
 # never in this repository, so CI builds with MTM_NO_LIFT=ON: the APK installs
@@ -76,14 +76,19 @@ jobs:
         working-directory: mtm/android
         run: ./gradlew assembleRelease --no-daemon --stacktrace -Pmtm.noLift=ON "-Pmtm.abis=${ABIS}"
 
-      - name: What is in it
-        working-directory: mtm/android/app/build/outputs/apk/release
+      # Two APKs: the full game and the 1998 demo (product flavors full, demo).
+      - name: What is in them
+        working-directory: mtm/android/app/build/outputs/apk
         run: |
-          ls -l
-          unzip -l app-release.apk | grep -E 'lib/|AndroidManifest|banner'
+          for apk in full/release/*.apk demo/release/*.apk; do
+            ls -l "$apk"
+            unzip -l "$apk" | grep -E 'lib/'
+          done
 
       - uses: actions/upload-artifact@v4
         with:
           name: mtm2-android-nolift-${{ github.sha }}
-          path: mtm/android/app/build/outputs/apk/release/*.apk
+          path: |
+            mtm/android/app/build/outputs/apk/full/release/*.apk
+            mtm/android/app/build/outputs/apk/demo/release/*.apk
           if-no-files-found: error

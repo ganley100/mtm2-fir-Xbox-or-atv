@@ -13,6 +13,10 @@
 #
 # -DMTM_NO_LIFT=ON builds without src/recomp/gen (a placeholder dispatch that
 # refuses to run), to check a toolchain before the long compile of the lift.
+#
+# -DMTM_VARIANT=demo builds the 1998 demo instead of the full game: its lift is
+# src/recomp/gen-demo (run_lift.py --demo), its files game-demo/
+# (tools/variant.py). build.cmd takes BUILD_DIR=build-demo CMAKE_ARGS=-DMTM_VARIANT=demo.
 # =============================================================================
 cmake_minimum_required(VERSION 3.20)
 project(mtm C)
@@ -34,13 +38,28 @@ endif()
 set(MTM_HOST "${MTM_HOST_DEFAULT}" CACHE STRING "native32 (Windows) or win32hle (Android, Linux)")
 set_property(CACHE MTM_HOST PROPERTY STRINGS native32 win32hle)
 option(MTM_NO_LIFT "build without the lifted code, to check a toolchain" OFF)
+set(MTM_VARIANT full CACHE STRING "full (the game) or demo (the 1998 demo)")
+set_property(CACHE MTM_VARIANT PROPERTY STRINGS full demo)
+if(MTM_VARIANT STREQUAL "full")
+  set(GEN_DIR "${MTM_ROOT}/src/recomp/gen")
+  set(MTM_GAME_DIR game)
+  set(MTM_TITLE "Monster Truck Madness 2")
+  set(LIFT_CMD "py -3 run_lift.py")
+elseif(MTM_VARIANT STREQUAL "demo")
+  set(GEN_DIR "${MTM_ROOT}/src/recomp/gen-demo")
+  set(MTM_GAME_DIR game-demo)
+  set(MTM_TITLE "Monster Truck Madness 2 Demo")
+  set(LIFT_CMD "py -3 run_lift.py --demo")
+else()
+  message(FATAL_ERROR "MTM_VARIANT is full or demo, not ${MTM_VARIANT}")
+endif()
 
 if(MTM_NO_LIFT)
   set(GEN_SOURCES "${MTM_ROOT}/src/portable/no_lift.c")
 else()
-  file(GLOB GEN_SOURCES CONFIGURE_DEPENDS "${MTM_ROOT}/src/recomp/gen/*.c")
+  file(GLOB GEN_SOURCES CONFIGURE_DEPENDS "${GEN_DIR}/*.c")
   if(NOT GEN_SOURCES)
-    message(FATAL_ERROR "src/recomp/gen is empty -- run `py -3 run_lift.py` first")
+    message(FATAL_ERROR "${GEN_DIR} is empty -- run `${LIFT_CMD}` first")
   endif()
 endif()
 
@@ -67,7 +86,7 @@ add_executable(mtm
   ${GEN_SOURCES}
 )
 target_include_directories(mtm PRIVATE
-  src/runtime src/pad src/recomp/gen ${PCRECOMP}/runtime/native32 ${PCRECOMP}/runtime/recomp32)
+  src/runtime src/pad ${GEN_DIR} ${PCRECOMP}/runtime/native32 ${PCRECOMP}/runtime/recomp32)
 # RECOMP_RETADDR=0u: a stack imbalance during bring-up leaks a harmless 0, not
 # 0xDEAD0000 into a size argument (forcecommander).
 target_compile_definitions(mtm PRIVATE RECOMP_RETADDR=0u _CRT_SECURE_NO_WARNINGS
@@ -145,7 +164,7 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM)")
   target_include_directories(mtm BEFORE PRIVATE src/portable/arm32)
 endif()
 target_include_directories(mtm PRIVATE
-  src/portable src/pad src/recomp/gen ${HLE} ${PCRECOMP}/runtime/recomp32)
+  src/portable src/pad ${GEN_DIR} ${HLE} ${PCRECOMP}/runtime/recomp32)
 target_compile_definitions(mtm PRIVATE RECOMP_RETADDR=0u RECOMP_LOCAL_REGS)
 # A 32-bit host (armeabi-v7a, Linux -m32) maps the guest where it asks: a
 # guest address is a host address. A 64-bit one keeps the guest's 4 GB in one
@@ -165,3 +184,6 @@ endif()
 else()
   message(FATAL_ERROR "MTM_HOST is native32 or win32hle, not ${MTM_HOST}")
 endif()
+
+# The game folder a run uses without --game, and the window's title.
+target_compile_definitions(mtm PRIVATE "MTM_GAME_DIR=\"${MTM_GAME_DIR}\"" "MTM_TITLE=\"${MTM_TITLE}\"")

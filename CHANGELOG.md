@@ -36,6 +36,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 - The controller mapping is shared code (`src/pad/pad_map.c`): XInput on
   Windows, SDL game controllers and the TV remote on Android.
 
+- The 1998 demo, side by side with the full game: `--demo` on
+  `gamefiles.py` (which also takes the folder the demo's installer made),
+  `catalog.py` and `run_lift.py` keeps it in `game-demo/`, `work/demo/` and
+  `src/recomp/gen-demo/`; `MTM_VARIANT=demo` builds it. On Android it is a
+  second app (`com.mtm2.recomp.demo`) with a DEMO banner. Not yet lifted or
+  run.
+
 ### Fixed
 - Headless, a dialog that opens off the main window ("Before You Begin" opened
   on another monitor) is centred on it, so the recording shows it where it

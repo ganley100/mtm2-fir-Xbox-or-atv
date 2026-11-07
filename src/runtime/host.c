@@ -27,6 +27,10 @@
 
 extern const uint32_t mtm_entry_va;       /* recomp_dispatch.c */
 
+#ifndef MTM_TITLE
+#define MTM_TITLE "Monster Truck Madness 2"  /* "... Demo" for the demo (CMakeLists.txt) */
+#endif
+
 #define MTM_BASE 0x00400000u
 
 static DWORD g_watchdog_s;
@@ -313,7 +317,10 @@ static DWORD WINAPI watchdog(LPVOID unused) {
 }
 
 int main(int argc, char** argv) {
-    const char* game = "game";
+#ifndef MTM_GAME_DIR
+#define MTM_GAME_DIR "game"                 /* game-demo for the demo (CMakeLists.txt) */
+#endif
+    const char* game = MTM_GAME_DIR;
     int run = 0, scale = 0, pad = 1;
     const char* pad_ini = NULL;
     ddh_opts_t o = { 0 };
@@ -378,7 +385,7 @@ int main(int argc, char** argv) {
     native32_init();
     SetDllDirectoryA(g_game);            /* smackw32.dll and the renderer DLLs sit in the game folder */
     AddVectoredExceptionHandler(0, crash);
-    printf("Monster Truck Madness 2 recomp host\n  lifted functions in dispatch: %u\n", recomp_dispatch_count);
+    printf("%s recomp host\n  lifted functions in dispatch: %u\n", MTM_TITLE, recomp_dispatch_count);
     uint32_t span = native32_map(g_guest_exe, MTM_BASE);
     if (!span) { fprintf(stderr, "cannot map %s at 0x%08X\n", g_guest_exe, MTM_BASE); return 1; }
     printf("  mapped Monster.exe: 0x%08X-0x%08X\n", MTM_BASE, MTM_BASE + span);

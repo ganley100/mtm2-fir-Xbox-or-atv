@@ -40,6 +40,13 @@
 #define DIERR_DEVICENOTREG     0x80040154u
 #define DIERR_INVALIDPARAM     0x80070057u
 
+#ifndef MTM_GAME_DIR
+#define MTM_GAME_DIR "game"                 /* game-demo for the demo (CMakeLists.txt) */
+#endif
+#ifndef MTM_TITLE
+#define MTM_TITLE "Monster Truck Madness 2"
+#endif
+
 /* gdidc.c looks here first for a font (CMakeLists.txt adds it to the search
  * on Android, which has no fontconfig and no Liberation fonts): the game
  * folder's fonts/, where LiberationSans-Regular.ttf and friends can go. */
@@ -179,7 +186,7 @@ int main(int argc, char** argv) {
     }
 
     if (recomp_dispatch_count == 0) {
-        fail("Monster Truck Madness 2",
+        fail(MTM_TITLE,
              "This build has no lifted code (MTM_NO_LIFT). Run tools/catalog.py and run_lift.py "
              "on your own Monster.exe, then build again.");
         return 1;
@@ -193,7 +200,7 @@ int main(int argc, char** argv) {
         const char* ext = SDL_AndroidGetExternalStoragePath();   /* /sdcard/Android/data/<package>/files */
         snprintf(gamedir, sizeof gamedir, "%s/game", ext ? ext : ".");
 #else
-        snprintf(gamedir, sizeof gamedir, "game");
+        snprintf(gamedir, sizeof gamedir, "%s", MTM_GAME_DIR);
 #endif
     }
     char full[PATH_MAX];
@@ -210,9 +217,9 @@ int main(int argc, char** argv) {
         char msg[1600];
         snprintf(msg, sizeof msg,
                  "Monster.exe is not in\n%s\n\n"
-                 "Copy the game folder made by tools/gamefiles.py there, e.g.\n"
-                 "adb push game/. \"%s/\"", gamedir, gamedir);
-        fail("Monster Truck Madness 2: no game files", msg);
+                 "Copy the folder made by tools/gamefiles.py there, e.g.\n"
+                 "adb push %s/. \"%s/\"", gamedir, MTM_GAME_DIR, gamedir);
+        fail(MTM_TITLE ": no game files", msg);
         return 1;
     }
     snprintf(mtm_font_dir, sizeof mtm_font_dir, "%s/fonts/", gamedir);
@@ -220,12 +227,12 @@ int main(int argc, char** argv) {
     static char ini[1100];
     if (!pad_ini) { snprintf(ini, sizeof ini, "%s/controller.ini", gamedir); pad_ini = ini; }
 
-    LOG("Monster Truck Madness 2 recomp host (win32hle)\n  game: %s\n  lifted functions in dispatch: %u",
+    LOG(MTM_TITLE " recomp host (win32hle)\n  game: %s\n  lifted functions in dispatch: %u",
         gamedir, recomp_dispatch_count);
 
     /* The game opens its PODs and monster.ini by bare name, from the
      * current folder, and sees the game folder as C:\. */
-    if (chdir(gamedir) != 0) { fail("Monster Truck Madness 2", "cannot enter the game folder"); return 1; }
+    if (chdir(gamedir) != 0) { fail(MTM_TITLE, "cannot enter the game folder"); return 1; }
     hle_set_drive('C', gamedir);
 
     recomp_host_init();
@@ -234,7 +241,7 @@ int main(int argc, char** argv) {
 
     static pe_image img;
     if (recomp_pe_map(exe, &img) != 0) {
-        fail("Monster Truck Madness 2", "cannot map Monster.exe at 0x00400000");
+        fail(MTM_TITLE, "cannot map Monster.exe at 0x00400000");
         return 1;
     }
     char guest[1100];
@@ -246,8 +253,8 @@ int main(int argc, char** argv) {
     int unresolved = recomp_pe_bind(&img, resolve);
     LOG("  mapped %s at 0x%08X, entry 0x%08X; %d imports stubbed", guest, img.base, img.entry, unresolved);
 
-    if (hle_screen_open("Monster Truck Madness 2", fullscreen, headless) != 0) {
-        fail("Monster Truck Madness 2", "cannot open the screen (SDL)");
+    if (hle_screen_open(MTM_TITLE, fullscreen, headless) != 0) {
+        fail(MTM_TITLE, "cannot open the screen (SDL)");
         return 1;
     }
     hle_screen_cursor_hook = show_cursor;

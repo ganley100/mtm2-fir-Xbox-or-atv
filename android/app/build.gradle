@@ -28,6 +28,23 @@ android {
         }
     }
 
+    // Two apps, installable side by side: the full game and the 1998 demo.
+    // Each builds its own lift (src/recomp/gen, src/recomp/gen-demo) and reads
+    // its own files from its own folder on the device.
+    flavorDimensions 'version'
+    productFlavors {
+        full {
+            dimension 'version'
+            externalNativeBuild { cmake { arguments '-DMTM_VARIANT=full' } }
+        }
+        demo {
+            dimension 'version'
+            applicationIdSuffix '.demo'
+            versionNameSuffix '-demo'
+            externalNativeBuild { cmake { arguments '-DMTM_VARIANT=demo' } }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -47,10 +64,16 @@ android {
     sourceSets {
         // SDLActivity and friends, from the SDL2 checkout (android/fetch-deps.sh).
         main.java.srcDirs += '../deps/SDL/android-project/app/src/main/java'
-        // The launcher banner: yours from tools/make_banner.py (android/banner,
-        // gitignored) when it is there, else the plain built-in one.
+        // The launcher banners: yours from tools/make_banner.py (android/banner,
+        // android/banner-demo; gitignored) when they are there, else the plain
+        // built-in ones. The demo's, when it has one, is used over the full game's.
         main.res.srcDirs += file('../banner/res/drawable-xhdpi/banner.png').exists()
                 ? '../banner/res' : 'src/main/res-banner'
+        if (file('../banner-demo/res/drawable-xhdpi/banner.png').exists()) {
+            demo.res.srcDirs += '../banner-demo/res'
+        } else if (!file('../banner/res/drawable-xhdpi/banner.png').exists()) {
+            demo.res.srcDirs += 'src/demo/res-banner'
+        }
     }
 
     compileOptions {

@@ -8,6 +8,7 @@ system DLL. Every catalogued function is lifted, no closure limit.
 
     py -3 tools/catalog.py      # work/functions_monster.json
     py -3 run_lift.py
+    py -3 run_lift.py --demo    # the demo: work/demo/ -> src/recomp/gen-demo/
 
 Same shape as virtualspringfield's run_lift.py; the generated C is recompiler
 output and is never committed (REPO_RULES section 3).
@@ -31,11 +32,10 @@ from generate import (EXTENT_REACH, find_splits, true_extent,  # noqa: E402
 from lift32 import Lifter                                  # noqa: E402
 from pe_analyze import analyze_pe, build_iat_map           # noqa: E402
 
-GAME = os.path.join(_HERE, 'game')
+sys.path.insert(0, os.path.join(_HERE, 'tools'))
+import variant                                             # noqa: E402
+
 EXE = 'Monster.exe'
-CATALOG = os.path.join(_HERE, 'work', 'functions_monster.json')
-OUT = os.path.join(_HERE, 'src', 'recomp', 'gen')
-STATS = os.path.join(_HERE, 'work', 'lift_stats.json')
 
 def lift(path, catalog, md, out, split):
     info = analyze_pe(path)
@@ -101,12 +101,18 @@ def lift(path, catalog, md, out, split):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--game', default=GAME, help='folder holding Monster.exe')
-    ap.add_argument('--out', default=OUT)
+    ap.add_argument('--demo', action='store_true', help='the 1998 demo (tools/variant.py)')
+    ap.add_argument('--game', help='folder holding Monster.exe')
+    ap.add_argument('--out')
     ap.add_argument('--split', type=int, default=400, help='functions per .c file')
     args = ap.parse_args()
+    v = variant.paths(args.demo)
+    args.game = args.game or v['game']
+    args.out = args.out or v['gen']
+    CATALOG, STATS = v['catalog'], v['stats']
     if not os.path.exists(CATALOG):
-        sys.exit('no catalog at %s -- run tools/catalog.py first (README, Step by step)' % CATALOG)
+        sys.exit('no catalog at %s -- run tools/catalog.py%s first (README, Step by step)'
+                 % (CATALOG, ' --demo' if args.demo else ''))
 
     md = Cs(CS_ARCH_X86, CS_MODE_32)
     md.detail = True
