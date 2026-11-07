@@ -112,6 +112,10 @@ static void mtm_DirectInputCreateA(void) {              /* (hinst, version, IDir
     RET(0, 4);
 }
 
+extern const win32hle_shim mtm_extra_shims[];     /* extra_shims.c */
+extern const win32hle_shim mtm_extra_shims_ui[];  /* extra_shims_ui.c */
+extern const win32hle_shim mtm_overrides[];       /* overrides.c: ahead of win32hle's own */
+
 static const win32hle_shim g_mtm_shims[] = {
     { "ChangeDisplaySettingsA", mtm_ChangeDisplaySettingsA },
     { "DirectInputCreateA", mtm_DirectInputCreateA },
@@ -234,6 +238,15 @@ static void pump(void) {
     run_script();
 }
 
+/* MTM_TEXTTRACE=1: every text the game puts in a window or control
+ * (WM_SETTEXT), and every dialog it opens by its resource number, so a
+ * screen that stops a run can be identified in the log. */
+static void text_trace(uint32_t hwnd, uint32_t msg, uint32_t wp, uint32_t lp) {
+    (void)wp;
+    if (msg == 0x000C && lp) LOG("[text] %08X: %.300s", hwnd, (const char*)hle_ptr(lp));
+}
+static void dialog_trace(uint32_t hwnd, uint32_t id) { LOG("[dialog] %08X: resource %u", hwnd, id); }
+
 /* MFC's front end uses the Windows arrow: show the cursor the guest set. */
 static int show_cursor(void) { return 1; }
 
@@ -348,8 +361,11 @@ int main(int argc, char** argv) {
     hle_set_drive('C', gamedir);
     if (overlay[0]) hle_set_overlay(gamedir, overlay);    /* a read-only game folder: writes go here */
 
+    win32hle_register(mtm_overrides);         /* first, so these answer instead of win32hle's */
     recomp_host_init();
     win32hle_register(g_mtm_shims);
+    win32hle_register(mtm_extra_shims);       /* after: only where win32hle has no answer */
+    win32hle_register(mtm_extra_shims_ui);
     win32hle_register(g_di_methods);
 
     static pe_image img;
@@ -370,12 +386,18 @@ int main(int argc, char** argv) {
         fail(MTM_TITLE, "cannot open the screen (SDL)");
         return 1;
     }
+    /* The window surface: the 640x480 the game's window DCs draw into (the
+     * front end is GDI, and so is the race in its windowed mode), which the
+     * screen shows. 32-bit: GDI converts the game's 8- and 16-bit DIBs. */
+    static uint32_t window_px[640 * 480];
+    hle_gdi_window_surface((uint8_t*)window_px, 640, 480, 640 * 4, 32);
     hle_screen_cursor_hook = show_cursor;
     if (!headless) {
         hle_screen_key_hook = pad_sdl_key;
         if (pad) g_pad_on = pad_sdl_start(pad_ini);
     }
     if (g_shots) hle_screen_frame_hook = shot;
+    if (getenv("MTM_TEXTTRACE")) hle_proc_hook = text_trace, hle_dialog_hook = dialog_trace;
     hle_set_pump_hook(pump);                  /* after hle_screen_open, which set its own */
 
     LOG("  entering 0x%08X", img.entry);

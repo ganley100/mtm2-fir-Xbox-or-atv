@@ -159,7 +159,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c.new" "${GDIDC}")
 configure_file("${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c.new" "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c" COPYONLY)
 list(APPEND HLE_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c")
 
-set(HOST_SOURCES src/portable/mtm_hle.c src/portable/pad_sdl.c src/pad/pad_map.c)
+set(HOST_SOURCES src/portable/mtm_hle.c src/portable/extra_shims.c src/portable/extra_shims_ui.c src/portable/overrides.c src/portable/pad_sdl.c src/pad/pad_map.c)
 if(MTM_XBOX)
   list(APPEND HOST_SOURCES src/xbox/xbox_main.c src/xbox/compat/compat.c src/xbox/no_wsock.c)
 endif()
@@ -227,7 +227,7 @@ else()
   set_source_files_properties(${HOST_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-O2")
 endif()
 if(MTM_XBOX)                             # after the options above, which would replace it
-  set_property(SOURCE ${HLE_SOURCES} src/portable/mtm_hle.c src/portable/pad_sdl.c src/xbox/xbox_main.c
+  set_property(SOURCE ${HLE_SOURCES} src/portable/mtm_hle.c src/portable/extra_shims.c src/portable/extra_shims_ui.c src/portable/overrides.c src/portable/pad_sdl.c src/xbox/xbox_main.c
                src/xbox/no_wsock.c APPEND PROPERTY COMPILE_OPTIONS "/FI${MTM_ROOT}/src/xbox/compat/xbox_compat.h")
 endif()
 
