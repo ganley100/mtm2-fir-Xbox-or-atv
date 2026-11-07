@@ -33,6 +33,7 @@
 #include "pe_loader.h"
 #include "host.h"
 #include "pad_sdl.h"
+#include "pad_map.h"
 #ifdef MTM_XBOX
 #include "xbox_main.h"
 #endif
@@ -151,9 +152,86 @@ static uint32_t resolve(const char* name) {
 
 /* ------------------------------------------------------- the pump */
 
+/* ------------------------------------------------------- scripted runs */
+
+/* --key NAME@MS[+HOLD], --click X,Y@MS (640x480), --quit-after S and
+ * --shots DIR, as the Windows host has them (README, Usage): input in
+ * milliseconds from the first pump, sent from the game's own thread. */
+#define WM_MOUSEMOVE_   0x0200u
+#define WM_LBUTTONDOWN_ 0x0201u
+#define WM_LBUTTONUP_   0x0202u
+#define MAX_SCRIPT 64
+static struct { int vk, x, y; uint32_t at, hold; int state; } g_script[MAX_SCRIPT];
+static int g_nscript, g_pad_on;
+static uint32_t g_t0, g_quit_ms;
+static const char* g_shots;
+
+static int parse_key(const char* arg) {
+    char name[16];
+    unsigned at = 0, hold = 100;
+    if (g_nscript >= MAX_SCRIPT || sscanf(arg, "%15[^@]@%u+%u", name, &at, &hold) < 2) return 0;
+    g_script[g_nscript].vk = pad_vk(name);
+    g_script[g_nscript].x = -1;
+    g_script[g_nscript].at = at, g_script[g_nscript++].hold = hold;
+    return 1;
+}
+static int parse_click(const char* arg) {
+    int x, y;
+    unsigned at = 0;
+    if (g_nscript >= MAX_SCRIPT || sscanf(arg, "%d,%d@%u", &x, &y, &at) != 3) return 0;
+    g_script[g_nscript].vk = 1;
+    g_script[g_nscript].x = x, g_script[g_nscript].y = y;
+    g_script[g_nscript].at = at, g_script[g_nscript++].hold = 80;
+    return 1;
+}
+
+static void run_script(void) {
+    uint32_t now = hle_ticks_ms();
+    if (!g_t0) g_t0 = now;
+    uint32_t t = now - g_t0;
+    for (int i = 0; i < g_nscript; i++) {
+        if (g_script[i].state == 0 && t >= g_script[i].at) {
+            if (g_script[i].x >= 0) {
+                LOG("[script] click %d,%d at %u ms", g_script[i].x, g_script[i].y, t);
+                hle_input_mouse(WM_MOUSEMOVE_, g_script[i].x, g_script[i].y);
+                hle_input_mouse(WM_LBUTTONDOWN_, g_script[i].x, g_script[i].y);
+            } else {
+                LOG("[script] key 0x%02X down at %u ms", g_script[i].vk, t);
+                hle_input_key(1, (uint32_t)g_script[i].vk, 0);
+            }
+            g_script[i].state = 1;
+        } else if (g_script[i].state == 1 && t >= g_script[i].at + g_script[i].hold) {
+            if (g_script[i].x >= 0) hle_input_mouse(WM_LBUTTONUP_, g_script[i].x, g_script[i].y);
+            else hle_input_key(0, (uint32_t)g_script[i].vk, 0);
+            g_script[i].state = 2;
+        }
+    }
+    if (g_quit_ms && t >= g_quit_ms) {
+        LOG("[script] quitting after %u ms", t);
+        hle_exit(0);
+    }
+}
+
+/* A frame as a BMP every 2 s of the run, named by its time. */
+static void shot(const uint8_t* px, int w, int h, int pitch, int bpp) {
+    static uint32_t last;
+    uint32_t t = hle_ticks_ms() - g_t0;
+    if (!g_shots || (last && t - last < 2000)) return;
+    last = t ? t : 1;
+    uint32_t fmt = bpp == 16 ? SDL_PIXELFORMAT_RGB565 : bpp == 32 ? SDL_PIXELFORMAT_RGB888 : 0;
+    if (!fmt) { static int said; if (!said++) LOG("[shots] %d-bit frames are not saved", bpp); return; }
+    SDL_Surface* s = SDL_CreateRGBSurfaceWithFormatFrom((void*)px, w, h, bpp, pitch, fmt);
+    if (!s) return;
+    char path[1100];
+    snprintf(path, sizeof path, "%s/shot_%06u.bmp", g_shots, t);
+    SDL_SaveBMP(s, path);
+    SDL_FreeSurface(s);
+}
+
 static void pump(void) {
     hle_screen_pump();
-    pad_sdl_poll();
+    if (g_pad_on) pad_sdl_poll();
+    run_script();
 }
 
 /* MFC's front end uses the Windows arrow: show the cursor the guest set. */
@@ -181,9 +259,18 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--windowed")) fullscreen = 0;
         else if (!strcmp(argv[i], "--pad") && i + 1 < argc) pad_ini = argv[++i];
         else if (!strcmp(argv[i], "--no-pad")) pad = 0;
+        else if (!strcmp(argv[i], "--key") && i + 1 < argc) {
+            if (!parse_key(argv[++i])) { fprintf(stderr, "bad --key %s\n", argv[i]); return 64; }
+        }
+        else if (!strcmp(argv[i], "--click") && i + 1 < argc) {
+            if (!parse_click(argv[++i])) { fprintf(stderr, "bad --click %s (want X,Y@MS)\n", argv[i]); return 64; }
+        }
+        else if (!strcmp(argv[i], "--quit-after") && i + 1 < argc) g_quit_ms = (uint32_t)atoi(argv[++i]) * 1000u;
+        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) g_shots = argv[++i];
         else {
             printf("usage: mtm [--game DIR] [--fullscreen|--windowed] [--headless]\n"
-                   "           [--pad controller.ini] [--no-pad]\n");
+                   "           [--pad controller.ini] [--no-pad]\n"
+                   "           [--key NAME@MS[+HOLD]] [--click X,Y@MS] [--quit-after S] [--shots DIR]\n");
             return argv[i][1] == 'h' || argv[i][2] == 'h' ? 0 : 64;
         }
     }
@@ -286,9 +373,10 @@ int main(int argc, char** argv) {
     hle_screen_cursor_hook = show_cursor;
     if (!headless) {
         hle_screen_key_hook = pad_sdl_key;
-        if (pad) pad_sdl_start(pad_ini);
-        hle_set_pump_hook(pump);              /* after hle_screen_open, which set its own */
+        if (pad) g_pad_on = pad_sdl_start(pad_ini);
     }
+    if (g_shots) hle_screen_frame_hook = shot;
+    hle_set_pump_hook(pump);                  /* after hle_screen_open, which set its own */
 
     LOG("  entering 0x%08X", img.entry);
     uint32_t args[1];
