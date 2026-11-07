@@ -62,6 +62,17 @@ With `-Game`, the package carries your game files, read-only. Whatever the
 game writes (its settings, saves) goes to the app's own `LocalState\game`
 folder instead. A package with the game inside is yours alone; don't share it.
 
+The tiles and splash screen are plain built-in ones unless you make your own
+from box art. The same command makes the Android TV banner too:
+
+```
+py -3 tools\make_banner.py boxart.jpg --top 30
+py -3 tools\make_banner.py --demo boxart-demo.jpg --top 30
+```
+
+That writes `xbox\Assets-user\` (and `Assets-user-demo\`), which
+`package.ps1` uses in place of the built-in tiles. The folders are gitignored.
+
 For the Liberation fonts (the menus' text), put `LiberationSans-*.ttf` from the
 [Liberation fonts](https://github.com/liberationfonts/liberation-fonts) release
 in `xbox\fonts\` before packaging. CI does this itself.

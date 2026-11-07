@@ -37,7 +37,12 @@ $signtool = "$($sdkbin.FullName)\x64\signtool.exe"
 Remove-Item -Recurse -Force $layout -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $layout, $outDir | Out-Null
 Copy-Item "$built\mtm.exe", "$built\SDL2.dll" $layout
-$assets = if ($Variant -eq 'demo' -and (Test-Path "$here\Assets-demo")) { "$here\Assets-demo" } else { "$here\Assets" }
+# The tiles: yours from tools\make_banner.py (Assets-user, Assets-user-demo;
+# gitignored) when they are there, else the plain built-in ones. The demo
+# without art of its own uses yours, as its Android banner does.
+$choices = if ($Variant -eq 'demo') { 'Assets-user-demo', 'Assets-user', 'Assets-demo', 'Assets' } else { 'Assets-user', 'Assets' }
+$assets = $choices | ForEach-Object { "$here\$_" } | Where-Object { Test-Path "$_\Square150x150Logo.png" } | Select-Object -First 1
+Write-Host "tiles: $assets"
 Copy-Item -Recurse $assets "$layout\Assets"
 if (Test-Path "$here\fonts") { Copy-Item -Recurse "$here\fonts" "$layout\fonts" }
 if ($Game) {

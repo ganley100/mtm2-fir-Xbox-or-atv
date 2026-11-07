@@ -79,7 +79,7 @@ py -3 tools/make_banner.py --demo demoart.jpg     # the demo app's, if you want 
 Without a banner of its own, the demo app uses yours. Without either, it
 uses the built-in one with a DEMO ribbon.
 
-It crops a 16:9 piece from the top of the picture, which on the box front
+It also makes the Xbox tiles (docs/xbox.md). It crops a 16:9 piece from the top of the picture, which on the box front
 is the title, above the ratings and publisher logos. It writes the crop to
 `android/banner/`, and the build uses it in place of the built-in banner.
 That folder is gitignored, so the artwork stays out of the repository.
