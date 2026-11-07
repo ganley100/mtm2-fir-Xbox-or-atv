@@ -21,7 +21,7 @@ demo (`Monster Truck Madness 2 Demo`), as two separate apps.
 demo runs on the same portable host, built for Linux x64 with the same
 64-bit memory layout as the Xbox build. It goes from its title menu
 through Driver Check-in and GO into a race, and drives at full speed. The
-front end's menus still have wrong colours; the race's are right. Nothing
+lists on Driver Check-in (name, skill, truck) are not drawn yet. Nothing
 has been started on a console yet. GitHub Actions
 (`.github/workflows/xbox.yml`) builds and packages both versions without the
 lift, as a check of the toolchain and the packaging. Nothing has been started
