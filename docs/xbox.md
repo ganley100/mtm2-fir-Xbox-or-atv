@@ -57,6 +57,21 @@ xbox\package.ps1 -Variant demo -Game game-demo
 Then install `xbox\out\MTM2Recomp.Demo_0.1.0.0_x64.msix` as below, and set
 the app's type to **Game**.
 
+### Or in GitHub Actions, privately
+
+`.github/workflows/xbox-demo-private.yml` does the same steps on a GitHub
+Windows runner and gives you the package as a build artifact (kept 7 days).
+Because the artifact has the demo inside, the workflow refuses to run unless
+the repository is **private**. To use it:
+
+1. Make the repository private (Settings → General → Danger Zone).
+2. Add a repository secret `MTM2_TRIAL_URL`: a direct download link to
+   `MtM2trial.EXE` (Settings → Secrets and variables → Actions). The file is
+   checked against the trial's SHA-256 before it is used.
+3. Actions → *Xbox demo (private)* → *Run workflow*. The download, lift,
+   build and packaging take a while; then download the artifact
+   `mtm2-xbox-demo-...` and install as below.
+
 ## Build and package
 
 From a PowerShell in the repository:

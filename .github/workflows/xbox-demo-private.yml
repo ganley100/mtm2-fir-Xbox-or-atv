@@ -1,0 +1,116 @@
+# The playable Xbox Dev Mode package of the 1998 demo, built in Actions.
+#
+# The demo is Microsoft's, so nothing of it is ever in this repository: the
+# installer is downloaded during the run from a link kept in the repository
+# secret MTM2_TRIAL_URL, checked against the trial's known SHA-256, unpacked,
+# translated and built, and the package (with the demo inside) is uploaded as
+# a build artifact.
+#
+# It runs only by hand, and only while the repository is PRIVATE: in a public
+# repository the artifact would be downloadable by anyone, which would be
+# handing out the game. The first step stops the run otherwise.
+#
+# To use: make the repository private, add the secret MTM2_TRIAL_URL (a direct
+# download link to MtM2trial.EXE), then Actions -> "Xbox demo (private)" ->
+# Run workflow. docs/xbox.md.
+name: Xbox demo (private)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pcrecomp_ref:
+        description: 'pcrecomp commit, branch or tag'
+        default: '2adc02fec0702933325801aa7b29a7646321857f'
+
+permissions:
+  contents: read
+
+env:
+  PCRECOMP_REF: ${{ github.event.inputs.pcrecomp_ref || '2adc02fec0702933325801aa7b29a7646321857f' }}
+  TRIAL_SHA256: aeaceb155b6a8c3fde61b571b9f095acaa7e98e54250c6e89e49a3c0595ceb4f
+
+jobs:
+  demo-msix:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - name: Private repositories only
+        shell: pwsh
+        env:
+          IS_PRIVATE: ${{ github.event.repository.private }}
+          TRIAL_URL: ${{ secrets.MTM2_TRIAL_URL }}
+        run: |
+          if ($env:IS_PRIVATE -ne 'true') {
+            Write-Error 'This repository is public: an artifact with the demo inside would be downloadable by anyone. Make it private first.'
+            exit 1
+          }
+          if (-not $env:TRIAL_URL) {
+            Write-Error 'No MTM2_TRIAL_URL secret: add a direct download link to MtM2trial.EXE (Settings -> Secrets and variables -> Actions).'
+            exit 1
+          }
+
+      - uses: actions/checkout@v4
+        with:
+          path: mtm
+
+      - uses: actions/checkout@v4
+        with:
+          repository: sp00nznet/pcrecomp
+          ref: ${{ env.PCRECOMP_REF }}
+          path: pcrecomp
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: The trial, from your link
+        shell: pwsh
+        env:
+          TRIAL_URL: ${{ secrets.MTM2_TRIAL_URL }}
+        run: |
+          New-Item -ItemType Directory -Force trial | Out-Null
+          Invoke-WebRequest $env:TRIAL_URL -OutFile trial/MtM2trial.EXE
+          $sha = (Get-FileHash trial/MtM2trial.EXE -Algorithm SHA256).Hash.ToLower()
+          if ($sha -ne $env:TRIAL_SHA256) {
+            Write-Error "MtM2trial.EXE from the link is not the trial this was built against (SHA-256 $sha)"
+            exit 1
+          }
+          Write-Host "MtM2trial.EXE ok ($((Get-Item trial/MtM2trial.EXE).Length) bytes)"
+
+      - name: Lay out, catalog and lift the demo
+        shell: pwsh
+        env:
+          PCRECOMP: ${{ github.workspace }}/pcrecomp
+        working-directory: mtm
+        run: |
+          python -m pip install --quiet capstone
+          python tools/gamefiles.py --demo ../trial/MtM2trial.EXE
+          python tools/catalog.py --demo
+          python run_lift.py --demo
+
+      - name: Liberation fonts
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $url = 'https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz'
+          Invoke-WebRequest $url -OutFile fonts.tgz
+          tar -xzf fonts.tgz
+          New-Item -ItemType Directory -Force mtm/xbox/fonts | Out-Null
+          Copy-Item liberation-fonts-ttf-2.1.5/*.ttf, liberation-fonts-ttf-2.1.5/LICENSE mtm/xbox/fonts/
+
+      - name: Build
+        shell: pwsh
+        run: mtm/xbox/build.ps1 -Variant demo -Pcrecomp pcrecomp
+
+      - name: Package, with the demo inside
+        shell: pwsh
+        run: |
+          mtm/xbox/package.ps1 -Variant demo -Game mtm/game-demo
+          Get-ChildItem mtm/xbox/out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mtm2-xbox-demo-${{ github.sha }}
+          path: mtm/xbox/out/*
+          retention-days: 7
+          if-no-files-found: error
