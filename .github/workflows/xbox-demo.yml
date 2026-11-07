@@ -7,8 +7,9 @@
 # against the trial's known SHA-256, unpacked, translated, built and packaged
 # on the runner (which is thrown away after), and the only thing uploaded is
 # a 7-Zip archive encrypted (AES-256, file names too) with the password in the
-# secret MTM2_ARTIFACT_PASSWORD. In a public repository anyone can download
-# the artifact, but without the password it is noise.
+# secret MTM2_ARTIFACT_PASSWORD, which GitHub deletes after a day. In a public
+# repository anyone can download the artifact meanwhile, but without the
+# password it is noise.
 #
 # Runs only by hand; secrets are not given to runs from forks.
 # To use: add both secrets (Settings -> Secrets and variables -> Actions),
@@ -126,5 +127,5 @@ jobs:
         with:
           name: mtm2-xbox-demo-encrypted-${{ github.sha }}
           path: sealed/mtm2-xbox-demo.7z
-          retention-days: 7
+          retention-days: 1          # deleted by GitHub after a day
           if-no-files-found: error

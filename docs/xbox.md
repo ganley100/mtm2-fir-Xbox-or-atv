@@ -72,7 +72,8 @@ Nothing of the game is committed, and the runner is thrown away after.
    - `MTM2_ARTIFACT_PASSWORD`: the archive's password, 12 characters or more.
 2. Actions → *Xbox demo (encrypted)* → *Run workflow* (the workflow has to be
    on the default branch for the button to show).
-3. Download the artifact `mtm2-xbox-demo-encrypted-...` and open
+3. Download the artifact `mtm2-xbox-demo-encrypted-...` within a day (GitHub
+   deletes it after that) and open
    `mtm2-xbox-demo.7z` with 7-Zip and your password. It contains the
    `.msix`, `mtm2recomp.cer` and `Microsoft.VCLibs.x64.14.00.appx`; install
    them as below.
