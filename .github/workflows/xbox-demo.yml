@@ -1,19 +1,20 @@
-# The playable Xbox Dev Mode package of the 1998 demo, built in Actions.
+# The playable Xbox Dev Mode package of the 1998 demo, built in Actions and
+# handed back ENCRYPTED.
 #
-# The demo is Microsoft's, so nothing of it is ever in this repository: the
-# installer is downloaded during the run from a link kept in the repository
-# secret MTM2_TRIAL_URL, checked against the trial's known SHA-256, unpacked,
-# translated and built, and the package (with the demo inside) is uploaded as
-# a build artifact.
+# The demo is Microsoft's, so nothing of it is ever in this repository, and
+# nothing of it leaves the run readable: the installer is downloaded during
+# the run from a link kept in the repository secret MTM2_TRIAL_URL, checked
+# against the trial's known SHA-256, unpacked, translated, built and packaged
+# on the runner (which is thrown away after), and the only thing uploaded is
+# a 7-Zip archive encrypted (AES-256, file names too) with the password in the
+# secret MTM2_ARTIFACT_PASSWORD. In a public repository anyone can download
+# the artifact, but without the password it is noise.
 #
-# It runs only by hand, and only while the repository is PRIVATE: in a public
-# repository the artifact would be downloadable by anyone, which would be
-# handing out the game. The first step stops the run otherwise.
-#
-# To use: make the repository private, add the secret MTM2_TRIAL_URL (a direct
-# download link to MtM2trial.EXE), then Actions -> "Xbox demo (private)" ->
-# Run workflow. docs/xbox.md.
-name: Xbox demo (private)
+# Runs only by hand; secrets are not given to runs from forks.
+# To use: add both secrets (Settings -> Secrets and variables -> Actions),
+# then Actions -> "Xbox demo (encrypted)" -> Run workflow, download the
+# artifact and open it with 7-Zip and your password. docs/xbox.md.
+name: Xbox demo (encrypted)
 
 on:
   workflow_dispatch:
@@ -34,18 +35,18 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 150
     steps:
-      - name: Private repositories only
+      - name: Both secrets are set
         shell: pwsh
         env:
-          IS_PRIVATE: ${{ github.event.repository.private }}
           TRIAL_URL: ${{ secrets.MTM2_TRIAL_URL }}
+          ARTIFACT_PASSWORD: ${{ secrets.MTM2_ARTIFACT_PASSWORD }}
         run: |
-          if ($env:IS_PRIVATE -ne 'true') {
-            Write-Error 'This repository is public: an artifact with the demo inside would be downloadable by anyone. Make it private first.'
-            exit 1
-          }
           if (-not $env:TRIAL_URL) {
             Write-Error 'No MTM2_TRIAL_URL secret: add a direct download link to MtM2trial.EXE (Settings -> Secrets and variables -> Actions).'
+            exit 1
+          }
+          if (-not $env:ARTIFACT_PASSWORD -or $env:ARTIFACT_PASSWORD.Length -lt 12) {
+            Write-Error 'No MTM2_ARTIFACT_PASSWORD secret of 12 characters or more: the package is only uploaded encrypted with it.'
             exit 1
           }
 
@@ -108,9 +109,22 @@ jobs:
           mtm/xbox/package.ps1 -Variant demo -Game mtm/game-demo
           Get-ChildItem mtm/xbox/out
 
+      # Only the encrypted archive leaves the runner. -mhe=on hides the file
+      # names too; the password comes from the secret, which the log masks.
+      - name: Encrypt
+        shell: pwsh
+        env:
+          ARTIFACT_PASSWORD: ${{ secrets.MTM2_ARTIFACT_PASSWORD }}
+        run: |
+          New-Item -ItemType Directory -Force sealed | Out-Null
+          & 7z a -t7z -mx=5 -mhe=on "-p$env:ARTIFACT_PASSWORD" sealed/mtm2-xbox-demo.7z ./mtm/xbox/out/* | Out-Null
+          if ($LASTEXITCODE -ne 0) { Write-Error '7-Zip failed'; exit 1 }
+          Remove-Item -Recurse -Force mtm/xbox/out, mtm/game-demo, mtm/src/recomp/gen-demo, trial
+          Get-ChildItem sealed
+
       - uses: actions/upload-artifact@v4
         with:
-          name: mtm2-xbox-demo-${{ github.sha }}
-          path: mtm/xbox/out/*
+          name: mtm2-xbox-demo-encrypted-${{ github.sha }}
+          path: sealed/mtm2-xbox-demo.7z
           retention-days: 7
           if-no-files-found: error

@@ -57,20 +57,25 @@ xbox\package.ps1 -Variant demo -Game game-demo
 Then install `xbox\out\MTM2Recomp.Demo_0.1.0.0_x64.msix` as below, and set
 the app's type to **Game**.
 
-### Or in GitHub Actions, privately
+### Or in GitHub Actions, encrypted
 
-`.github/workflows/xbox-demo-private.yml` does the same steps on a GitHub
-Windows runner and gives you the package as a build artifact (kept 7 days).
-Because the artifact has the demo inside, the workflow refuses to run unless
-the repository is **private**. To use it:
+`.github/workflows/xbox-demo.yml` does the same steps on a GitHub Windows
+runner, which works in this public repository's free minutes. The package
+has the demo inside, so the run uploads it only inside a 7-Zip archive
+encrypted with your password (AES-256, file names hidden). Anyone can see the
+run and download the archive, but without the password it can't be opened.
+Nothing of the game is committed, and the runner is thrown away after.
 
-1. Make the repository private (Settings → General → Danger Zone).
-2. Add a repository secret `MTM2_TRIAL_URL`: a direct download link to
-   `MtM2trial.EXE` (Settings → Secrets and variables → Actions). The file is
-   checked against the trial's SHA-256 before it is used.
-3. Actions → *Xbox demo (private)* → *Run workflow*. The download, lift,
-   build and packaging take a while; then download the artifact
-   `mtm2-xbox-demo-...` and install as below.
+1. Add two repository secrets (Settings → Secrets and variables → Actions):
+   - `MTM2_TRIAL_URL`: a direct download link to `MtM2trial.EXE`. It is
+     checked against the trial's SHA-256 before it is used.
+   - `MTM2_ARTIFACT_PASSWORD`: the archive's password, 12 characters or more.
+2. Actions → *Xbox demo (encrypted)* → *Run workflow* (the workflow has to be
+   on the default branch for the button to show).
+3. Download the artifact `mtm2-xbox-demo-encrypted-...` and open
+   `mtm2-xbox-demo.7z` with 7-Zip and your password. It contains the
+   `.msix`, `mtm2recomp.cer` and `Microsoft.VCLibs.x64.14.00.appx`; install
+   them as below.
 
 ## Build and package
 
