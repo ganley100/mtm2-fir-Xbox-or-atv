@@ -1,0 +1,87 @@
+# Android TV APK: builds SDL2, SDL2_ttf, pcrecomp's win32hle and the portable
+# host for armeabi-v7a and packages the APK.
+#
+# The lifted game (src/recomp/gen) is made from your own Monster.exe and is
+# never in this repository, so CI builds with MTM_NO_LIFT=ON: the APK installs
+# and starts, then says it has no game code. It proves the toolchain, the
+# native build and the packaging; a playable APK is built locally
+# (docs/android.md).
+name: Android APK
+
+on:
+  push:
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+    inputs:
+      pcrecomp_ref:
+        description: 'pcrecomp commit, branch or tag'
+        default: '2adc02fec0702933325801aa7b29a7646321857f'
+      abis:
+        description: 'ABIs, comma-separated'
+        default: 'armeabi-v7a'
+
+permissions:
+  contents: read
+
+env:
+  PCRECOMP_REF: ${{ github.event.inputs.pcrecomp_ref || '2adc02fec0702933325801aa7b29a7646321857f' }}
+  ABIS: ${{ github.event.inputs.abis || 'armeabi-v7a' }}
+  NDK_VERSION: 27.2.12479018
+  CMAKE_VERSION: 3.22.1
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mtm
+
+      # pcrecomp sits beside the repo, as for every build (CMakeLists.txt).
+      - uses: actions/checkout@v4
+        with:
+          repository: sp00nznet/pcrecomp
+          ref: ${{ env.PCRECOMP_REF }}
+          path: pcrecomp
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" "platforms;android-34" > /dev/null
+
+      - name: SDL2 and SDL2_ttf
+        run: mtm/android/fetch-deps.sh
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the APK (no lift)
+        working-directory: mtm/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -Pmtm.noLift=ON "-Pmtm.abis=${ABIS}"
+
+      - name: What is in it
+        working-directory: mtm/android/app/build/outputs/apk/release
+        run: |
+          ls -l
+          unzip -l app-release.apk | grep -E 'lib/|AndroidManifest|banner'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mtm2-android-nolift-${{ github.sha }}
+          path: mtm/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

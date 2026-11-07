@@ -36,6 +36,10 @@ cd android
 ./gradlew assembleRelease             # gradlew.bat on Windows
 ```
 
+GitHub Actions (`.github/workflows/android.yml`) runs this build on every
+push that touches the Android or host code, with `mtm.noLift=ON` since the
+lift is never in the repository. Its APK is a build check, not the game.
+
 The APK is `android/app/build/outputs/apk/release/app-release.apk`. It is
 signed with the debug key so it installs as is.
 
