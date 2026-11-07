@@ -300,7 +300,6 @@ static void g_pattern_brush(int n) {
 static void g_CreatePatternBrush(void)      { g_pattern_brush(1); }
 static void g_CreateDIBPatternBrushPt(void) { g_pattern_brush(2); }
 static void g_LPtoDP(void)          { RET(1, 3); }
-static void g_GetDIBColorTable(void){ RET(0, 4); }
 static void g_StartDocA(void)       { RET((uint32_t)-1, 2); }   /* no printer */
 static void g_Escape(void)          { RET(0, 5); }
 static void g_SetTextCharacterExtra(void) { RET(0, 2); }
@@ -370,7 +369,7 @@ const win32hle_shim mtm_extra_shims_ui[] = {
     { "SetTextCharacterExtra", g_SetTextCharacterExtra }, { "SetTextJustification", g_SetTextJustification },
     { "SetMapperFlags", g_SetMapperFlags }, { "ExtTextOutA", g_ExtTextOutA },
     { "GetNearestColor", g_GetNearestColor }, { "GetObjectType", g_GetObjectType },
-    { "GetCurrentPositionEx", g_GetCurrentPositionEx }, { "GetDIBColorTable", g_GetDIBColorTable },
+    { "GetCurrentPositionEx", g_GetCurrentPositionEx },
     { "ExtCreatePen", g_ExtCreatePen },
     { "CreatePatternBrush", g_CreatePatternBrush }, { "CreateDIBPatternBrushPt", g_CreateDIBPatternBrushPt },
     { "Ellipse", g_ret1_5 }, { "Polygon", g_ret1_3 }, { "PolylineTo", g_ret1_3 }, { "PolyBezierTo", g_ret1_3 },

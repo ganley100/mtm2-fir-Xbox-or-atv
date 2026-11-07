@@ -238,12 +238,75 @@ static uint32_t dc_palette(uint32_t dc) {
     return 0;
 }
 
+/* GetDIBColorTable(hdc, start, n, RGBQUAD*): the colour table of the DIB
+ * selected into hdc. win32hle has no answer for it, and MTM2's BMP loader
+ * reads a bitmap's colours back this way before it builds the table that
+ * maps the picture onto its palette: with nothing read, the menu pictures
+ * came out in 22 wrong colours. win32hle keeps a DIB's table out of reach,
+ * so a copy is kept here: from CreateDIBSection, changed by
+ * SetDIBColorTable, and which DIB is in which DC from SelectObject. */
+#define MAX_DIBTAB 64
+static struct { uint32_t bmp, n; uint32_t rgb[256]; } g_dibtab[MAX_DIBTAB];   /* RGBQUAD as 0x00RRGGBB */
+static struct { uint32_t dc, bmp; } g_dcbmp[MAX_DCPAL];
+static int dibtab_find(uint32_t bmp) {
+    for (int i = 0; i < MAX_DIBTAB; i++) if (g_dibtab[i].bmp == bmp && bmp) return i;
+    return -1;
+}
+static void dibtab_record(uint32_t bmp, uint32_t table_va, uint32_t n) {
+    int i = dibtab_find(bmp);
+    for (int j = 0; i < 0 && j < MAX_DIBTAB; j++) if (!g_dibtab[j].bmp) i = j;
+    if (i < 0) { static int k; i = k++ % MAX_DIBTAB; }  /* full: the oldest goes */
+    g_dibtab[i].bmp = bmp, g_dibtab[i].n = n > 256 ? 256 : n;
+    memset(g_dibtab[i].rgb, 0, sizeof g_dibtab[i].rgb);
+    for (uint32_t k = 0; k < g_dibtab[i].n; k++) g_dibtab[i].rgb[k] = MEM32(table_va + 4 * k) & 0xFFFFFFu;
+}
+static uint32_t dc_bitmap(uint32_t dc) {
+    for (int i = 0; i < MAX_DCPAL; i++) if (g_dcbmp[i].dc == dc) return g_dcbmp[i].bmp;
+    return 0;
+}
+static void o_SelectObject(void) {                       /* (hdc, obj) */
+    uint32_t dc = A32(0), obj = A32(1);
+    if (dibtab_find(obj) >= 0) {
+        int i, free_slot = -1;
+        for (i = 0; i < MAX_DCPAL; i++) {
+            if (g_dcbmp[i].dc == dc) break;
+            if (!g_dcbmp[i].dc && free_slot < 0) free_slot = i;
+        }
+        if (i == MAX_DCPAL) i = free_slot;
+        if (i >= 0) g_dcbmp[i].dc = dc, g_dcbmp[i].bmp = obj;
+    }
+    uint32_t a[2] = { dc, obj };
+    RET(call_orig("SelectObject", 2, a), 2);
+}
+static void o_SetDIBColorTable(void) {                   /* (hdc, start, n, RGBQUAD*) */
+    int i = dibtab_find(dc_bitmap(A32(0)));
+    if (i >= 0 && A32(3))
+        for (uint32_t k = 0; k < A32(2) && A32(1) + k < 256; k++) {
+            g_dibtab[i].rgb[A32(1) + k] = MEM32(A32(3) + 4 * k) & 0xFFFFFFu;
+            if (A32(1) + k + 1 > g_dibtab[i].n) g_dibtab[i].n = A32(1) + k + 1;
+        }
+    uint32_t a[4] = { A32(0), A32(1), A32(2), A32(3) };
+    RET(call_orig("SetDIBColorTable", 4, a), 4);
+}
+static void o_GetDIBColorTable(void) {                   /* (hdc, start, n, RGBQUAD*) */
+    int i = dibtab_find(dc_bitmap(A32(0)));
+    uint32_t start = A32(1), n = A32(2), out = A32(3), k = 0;
+    if (i < 0 || !out) RET(0, 4);
+    for (; k < n && start + k < g_dibtab[i].n; k++) MEM32(out + 4 * k) = g_dibtab[i].rgb[start + k];
+    RET(k, 4);
+}
+
 static void o_CreateDIBSection(void) {
     uint32_t dc = A32(0), bmi = A32(1), usage = A32(2);
     uint32_t a[6] = { A32(0), A32(1), A32(2), A32(3), A32(4), A32(5) };
     uint32_t hsize = bmi ? MEM32(bmi) : 0;
     uint32_t bpp = bmi ? (MEM32(bmi + 12) >> 16) : 0;
-    if (usage != 1 || !bmi || bpp > 8 || hsize < 40) RET(call_orig("CreateDIBSection", 6, a), 6);
+    if (usage != 1 || !bmi || bpp > 8 || hsize < 40) {
+        uint32_t h = call_orig("CreateDIBSection", 6, a);
+        if (h && bmi && bpp && bpp <= 8 && hsize >= 40)
+            dibtab_record(h, bmi + hsize, MEM32(bmi + 32) ? MEM32(bmi + 32) : 1u << bpp);
+        RET(h, 6);
+    }
     uint32_t n = MEM32(bmi + 32) ? MEM32(bmi + 32) : 1u << bpp;
     if (n > 256) n = 256;
     uint32_t mark = hle_scratch_mark();
@@ -259,6 +322,7 @@ static void o_CreateDIBSection(void) {
     }
     a[1] = nb, a[2] = 0;                                 /* DIB_RGB_COLORS */
     uint32_t h = call_orig("CreateDIBSection", 6, a);
+    if (h) dibtab_record(h, nb + hsize, n);
     hle_scratch_release(mark);
     RET(h, 6);
 }
@@ -292,5 +356,8 @@ const win32hle_shim mtm_overrides[] = {
     { "SelectPalette", o_SelectPalette },
     { "BeginPaint", o_BeginPaint },
     { "CreateDIBSection", o_CreateDIBSection },
+    { "SelectObject", o_SelectObject },
+    { "SetDIBColorTable", o_SetDIBColorTable },
+    { "GetDIBColorTable", o_GetDIBColorTable },
     { NULL, NULL },
 };
