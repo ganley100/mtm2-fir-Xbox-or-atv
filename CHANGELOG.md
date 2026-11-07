@@ -43,6 +43,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
   second app (`com.mtm2.recomp.demo`) with a DEMO banner. Not yet lifted or
   run.
 
+- Xbox Dev Mode build (not yet run on a console): the portable host as a
+  UWP x64 app, with `src/xbox/compat/` (pthreads, `mmap`, `dirent` and the
+  rest on the Win32 calls a UWP app may make), `xbox/build.ps1` and
+  `xbox/package.ps1` (a signed `.msix` with its certificate and the VCLibs
+  runtime), for the full game and the demo. CI builds and packages both
+  without the lift. docs/xbox.md.
+
 ### Fixed
 - Headless, a dialog that opens off the main window ("Before You Begin" opened
   on another monitor) is centred on it, so the recording shows it where it

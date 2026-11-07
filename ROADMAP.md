@@ -13,6 +13,9 @@
   calls the first runs stop on. A pointer drawn over the picture for cursor
   mode without a mouse, and Smacker intros on ffmpeg (docs/android.md).
 
+- Xbox Dev Mode: install the package on a console and run it (docs/xbox.md),
+  then the Windows calls it stops on, as for Android.
+
 ## Later
 - Hardware renderers: `TRID3D.DLL` natively, or a host Direct3D.
 - Monster Truck Madness 1 (1996): unpack its ACME cabinets first.
