@@ -17,7 +17,12 @@ pcrecomp's `win32hle` and SDL2), built as a UWP x64 app:
 Both versions build: the full game (`Monster Truck Madness 2`) and the 1998
 demo (`Monster Truck Madness 2 Demo`), as two separate apps.
 
-**Status: set up, not yet run on an Xbox.** GitHub Actions
+**Status: the demo races on this host; not yet run on an Xbox.** The 1998
+demo runs on the same portable host, built for Linux x64 with the same
+64-bit memory layout as the Xbox build. It goes from its title menu
+through Driver Check-in and GO into a race, and drives at full speed. The
+front end's menus still have wrong colours; the race's are right. Nothing
+has been started on a console yet. GitHub Actions
 (`.github/workflows/xbox.yml`) builds and packages both versions without the
 lift, as a check of the toolchain and the packaging. Nothing has been started
 on a console yet.
@@ -33,6 +38,24 @@ on a console yet.
 - An Xbox One or Series console in Dev Mode (the *Xbox Dev Mode* app, with a
   one-time Partner Center developer registration), with the Device Portal
   turned on in the Dev Home app.
+
+## The demo, step by step
+
+On a Windows PC with the tools above, in this repository:
+
+```
+py -3 tools\gamefiles.py --demo MtM2trial.EXE      # the trial's installer, as downloaded
+py -3 tools\catalog.py --demo                      # about 2 minutes
+py -3 run_lift.py --demo                           # about 1 minute
+xbox\build.ps1 -Variant demo                       # SDL2 once, then the game (a while)
+xbox\package.ps1 -Variant demo -Game game-demo
+```
+
+`gamefiles.py` unpacks the installer without running it (Windows' own
+`expand.exe` does this) and lays the files out in `game-demo\`.
+
+Then install `xbox\out\MTM2Recomp.Demo_0.1.0.0_x64.msix` as below, and set
+the app's type to **Game**.
 
 ## Build and package
 

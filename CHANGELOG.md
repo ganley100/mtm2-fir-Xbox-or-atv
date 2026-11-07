@@ -50,6 +50,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
   runtime), for the full game and the demo. CI builds and packages both
   without the lift. docs/xbox.md.
 
+- The 1998 demo runs on the portable host (`win32hle`, the Xbox build's
+  setup, on Linux x64): title menu, Driver Check-in, GO, "Before You
+  Begin", and a race that drives. The Windows calls it needed that
+  `win32hle` lacked are in `src/portable/extra_shims*.c`. The fixes to
+  calls `win32hle` answers wrongly are in `src/portable/overrides.c`
+  (GetFullPathNameA, the MDI client, owner draw, BeginPaint's
+  WM_ERASEBKGND, DIB_PAL_COLORS) and the BitBlt origin rewrite in
+  CMakeLists.txt, all to send upstream. `gamefiles.py --demo` takes the
+  trial's installer as it is.
+
 ### Fixed
 - Headless, a dialog that opens off the main window ("Before You Begin" opened
   on another monitor) is centred on it, so the recording shows it where it

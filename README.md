@@ -29,6 +29,7 @@ finished yet.
 | Hardware renderers (`TRID3D.DLL`, Glide) | not started |
 | Android TV (`armeabi-v7a`) on pcrecomp's `win32hle` | set up, not yet run on a device ([docs/android.md](docs/android.md)) |
 | Xbox Dev Mode (UWP x64) on pcrecomp's `win32hle` | builds and packages in CI, not yet run on a console ([docs/xbox.md](docs/xbox.md)) |
+| The 1998 demo on `win32hle` (Linux x64, as the Xbox build) | races; front-end menus still miscoloured |
 
 Needs pcrecomp [#81](https://github.com/sp00nznet/pcrecomp/pull/81) (thunk
 tables in `disasm32`); without it the run faults on the first call through a
