@@ -27,6 +27,7 @@ finished yet.
 | Driver Check-in (3D truck preview), GO, "Before You Begin" | done |
 | A race on the software renderer (windowed, GDI) | drives; not finished yet |
 | Hardware renderers (`TRID3D.DLL`, Glide) | not started |
+| Android TV (`armeabi-v7a`) on pcrecomp's `win32hle` | set up, not yet run on a device ([docs/android.md](docs/android.md)) |
 
 Needs pcrecomp [#81](https://github.com/sp00nznet/pcrecomp/pull/81) (thunk
 tables in `disasm32`); without it the run faults on the first call through a
@@ -110,6 +111,14 @@ sticks move the mouse pointer over the game's window and A/B click, for the
 title menu and Driver Check-in; BACK again goes back to driving. Gears,
 camera and the other race keys are left free in the file to map to the
 game's own key list.
+
+## Android TV
+
+The same lift also builds for Android TV / Google TV as an APK, on
+pcrecomp's portable `win32hle` layer and SDL2 instead of Windows itself, with
+the same controller mapping and the remote's D-pad, OK and back buttons.
+It has not been run on a device yet; [docs/android.md](docs/android.md) has the
+build, install and status.
 
 ## Building from source
 

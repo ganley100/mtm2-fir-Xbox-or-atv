@@ -1,0 +1,56 @@
+// Monster Truck Madness 2 for Android TV: SDL2's SDLActivity around the
+// portable host (libmain.so, src/portable/). docs/android.md has the steps.
+plugins {
+    id 'com.android.application'
+}
+
+def mtmRoot = file('../..')
+def abis = (project.findProperty('mtm.abis') ?: 'armeabi-v7a').split(',').collect { it.trim() }
+
+android {
+    namespace 'com.mtm2.recomp'
+    compileSdk 34
+    ndkVersion '27.2.12479018'
+
+    defaultConfig {
+        applicationId 'com.mtm2.recomp'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '0.1-alpha'
+        ndk { abiFilters(*abis) }
+        externalNativeBuild {
+            cmake {
+                arguments "-DPCRECOMP=${project.findProperty('mtm.pcrecomp') ?: new File(mtmRoot, '../pcrecomp').canonicalPath}",
+                          "-DMTM_NO_LIFT=${project.findProperty('mtm.noLift') ?: 'OFF'}",
+                          "-DGEN_OPT=${project.findProperty('mtm.genOpt') ?: '-O2'}"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Signed with the debug key so `assembleRelease` installs as is;
+            // use your own signingConfig to publish.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        // SDLActivity and friends, from the SDL2 checkout (android/fetch-deps.sh).
+        main.java.srcDirs += '../deps/SDL/android-project/app/src/main/java'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

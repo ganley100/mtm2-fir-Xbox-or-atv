@@ -1,12 +1,54 @@
 # =============================================================================
-# Monster Truck Madness 2 - static recompilation host (32-bit, MSVC x86)
+# Monster Truck Madness 2 - static recompilation host
 #
 #   py -3 run_lift.py        # -> src/recomp/gen/  (needs work/functions_monster.json)
-#   build.cmd                # vcvarsall amd64_x86 + CMake + Ninja -> build/mtm.exe
-#   build\mtm.exe --run
+#
+# Two hosts run the same lift:
+#
+#   native32  Windows, 32-bit MSVC x86 (build.cmd -> build/mtm.exe). Imports go
+#             to the real Windows. The default with MSVC.
+#   win32hle  Android TV and Linux (SDL2 + SDL2_ttf). pcrecomp's win32hle
+#             answers the imports itself. The default with any other compiler;
+#             android/ builds it into an APK, docs/android.md.
+#
+# -DMTM_NO_LIFT=ON builds without src/recomp/gen (a placeholder dispatch that
+# refuses to run), to check a toolchain before the long compile of the lift.
 # =============================================================================
 cmake_minimum_required(VERSION 3.20)
 project(mtm C)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
+
+set(MTM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+set(PCRECOMP "${MTM_ROOT}/../pcrecomp" CACHE PATH "pcrecomp checkout")
+if(NOT EXISTS "${PCRECOMP}/runtime/recomp32/recomp_types.h")
+  message(FATAL_ERROR "no pcrecomp at ${PCRECOMP}: clone it beside this repo or pass -DPCRECOMP=")
+endif()
+if(MSVC)
+  set(MTM_HOST_DEFAULT native32)
+else()
+  set(MTM_HOST_DEFAULT win32hle)
+endif()
+set(MTM_HOST "${MTM_HOST_DEFAULT}" CACHE STRING "native32 (Windows) or win32hle (Android, Linux)")
+set_property(CACHE MTM_HOST PROPERTY STRINGS native32 win32hle)
+option(MTM_NO_LIFT "build without the lifted code, to check a toolchain" OFF)
+
+if(MTM_NO_LIFT)
+  set(GEN_SOURCES "${MTM_ROOT}/src/portable/no_lift.c")
+else()
+  file(GLOB GEN_SOURCES CONFIGURE_DEPENDS "${MTM_ROOT}/src/recomp/gen/*.c")
+  if(NOT GEN_SOURCES)
+    message(FATAL_ERROR "src/recomp/gen is empty -- run `py -3 run_lift.py` first")
+  endif()
+endif()
+
+option(MTM_TRACE "record a ring buffer of lifted function entries" OFF)
+
+# =============================================================================
+if(MTM_HOST STREQUAL "native32")
+# =============================================================================
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
   message(FATAL_ERROR "the host must be 32-bit: use build.cmd (vcvarsall amd64_x86)")
@@ -14,17 +56,9 @@ endif()
 if(NOT MSVC)
   message(FATAL_ERROR "runtime/native32 is MSVC x86 inline assembly")
 endif()
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE RelWithDebInfo)
-endif()
 
-set(PCRECOMP "${CMAKE_SOURCE_DIR}/../pcrecomp" CACHE PATH "pcrecomp checkout")
-file(GLOB GEN_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/recomp/gen/*.c")
-if(NOT GEN_SOURCES)
-  message(FATAL_ERROR "src/recomp/gen is empty -- run `py -3 run_lift.py` first")
-endif()
-
-set(HOST_SOURCES src/runtime/host.c src/runtime/ddraw.c src/runtime/present.c src/runtime/pad.c)
+set(HOST_SOURCES src/runtime/host.c src/runtime/ddraw.c src/runtime/present.c src/runtime/pad.c
+                 src/pad/pad_map.c)
 add_executable(mtm
   ${HOST_SOURCES}
   ${PCRECOMP}/runtime/native32/native32.c
@@ -33,7 +67,7 @@ add_executable(mtm
   ${GEN_SOURCES}
 )
 target_include_directories(mtm PRIVATE
-  src/runtime src/recomp/gen ${PCRECOMP}/runtime/native32 ${PCRECOMP}/runtime/recomp32)
+  src/runtime src/pad src/recomp/gen ${PCRECOMP}/runtime/native32 ${PCRECOMP}/runtime/recomp32)
 # RECOMP_RETADDR=0u: a stack imbalance during bring-up leaks a harmless 0, not
 # 0xDEAD0000 into a size argument (forcecommander).
 target_compile_definitions(mtm PRIVATE RECOMP_RETADDR=0u _CRT_SECURE_NO_WARNINGS
@@ -50,10 +84,84 @@ target_link_libraries(mtm PRIVATE user32 gdi32 kernel32 advapi32 winmm dwmapi d3
 # The controller mapping goes beside mtm.exe, where pad.c looks for it. Copied
 # only when missing, so edits made to the build's copy survive a rebuild.
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/controller.ini")
-  file(COPY "${CMAKE_SOURCE_DIR}/config/controller.ini" DESTINATION "${CMAKE_BINARY_DIR}")
+  file(COPY "${MTM_ROOT}/config/controller.ini" DESTINATION "${CMAKE_BINARY_DIR}")
 endif()
 
-option(MTM_TRACE "record a ring buffer of lifted function entries" OFF)
 if(MTM_TRACE)
   target_compile_definitions(mtm PRIVATE RECOMP_TRACE=1)
+endif()
+
+# =============================================================================
+elseif(MTM_HOST STREQUAL "win32hle")
+# =============================================================================
+
+set(HLE "${PCRECOMP}/runtime/win32hle")
+file(GLOB HLE_SOURCES "${HLE}/*.c")
+list(FILTER HLE_SOURCES EXCLUDE REGEX "_selftest\\.c$")
+
+# Fonts. gdidc.c finds the faces the game asks for (Arial, MS Sans Serif) as
+# Liberation fonts through fontconfig or the usual Linux font folders. Android
+# has neither, so the build compiles a copy that looks first in the game
+# folder's fonts/ (mtm_font_dir, set by mtm_hle.c), then /system/fonts, with
+# Roboto as the last resort where DejaVu Sans would be.
+list(REMOVE_ITEM HLE_SOURCES "${HLE}/gdidc.c")
+file(READ "${HLE}/gdidc.c" GDIDC)
+set(DIRS_OLD "static const char *const dirs[] = { ")
+string(FIND "${GDIDC}" "${DIRS_OLD}" AT)
+if(AT EQUAL -1)
+  message(FATAL_ERROR "gdidc.c's font search has changed: update the rewrite in CMakeLists.txt")
+endif()
+string(REPLACE "${DIRS_OLD}" "extern char mtm_font_dir[];\n    static const char *const dirs[] = { mtm_font_dir, \"/system/fonts/\", " GDIDC "${GDIDC}")
+if(ANDROID)
+  string(REPLACE "\"DejaVuSans-Bold.ttf\" : \"DejaVuSans.ttf\"" "\"Roboto-Regular.ttf\" : \"Roboto-Regular.ttf\"" GDIDC "${GDIDC}")
+endif()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c.new" "${GDIDC}")
+configure_file("${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c.new" "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c" COPYONLY)
+list(APPEND HLE_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c")
+
+set(HOST_SOURCES src/portable/mtm_hle.c src/portable/pad_sdl.c src/pad/pad_map.c)
+if(ANDROID)
+  # SDLActivity loads the game as libmain.so and calls its SDL_main.
+  add_library(mtm SHARED ${HOST_SOURCES} ${HLE_SOURCES} ${GEN_SOURCES})
+  set_target_properties(mtm PROPERTIES OUTPUT_NAME main)
+  target_link_libraries(mtm PRIVATE log android)
+else()
+  add_executable(mtm ${HOST_SOURCES} ${HLE_SOURCES} ${GEN_SOURCES})
+endif()
+
+if(TARGET SDL2 AND TARGET SDL2_ttf)      # built alongside (android/)
+  target_link_libraries(mtm PRIVATE SDL2 SDL2_ttf)
+else()
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(SDL REQUIRED IMPORTED_TARGET sdl2 SDL2_ttf)
+  target_link_libraries(mtm PRIVATE PkgConfig::SDL)
+endif()
+find_package(Threads REQUIRED)
+target_link_libraries(mtm PRIVATE Threads::Threads m)
+
+# On 32-bit ARM the lift sees an alignment-safe recomp_types.h first
+# (src/portable/arm32/recomp_types.h explains).
+if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM)")
+  target_include_directories(mtm BEFORE PRIVATE src/portable/arm32)
+endif()
+target_include_directories(mtm PRIVATE
+  src/portable src/pad src/recomp/gen ${HLE} ${PCRECOMP}/runtime/recomp32)
+target_compile_definitions(mtm PRIVATE RECOMP_RETADDR=0u RECOMP_LOCAL_REGS)
+# A 32-bit host (armeabi-v7a, Linux -m32) maps the guest where it asks: a
+# guest address is a host address. A 64-bit one keeps the guest's 4 GB in one
+# block (win32hle/README.md).
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+  target_compile_definitions(mtm PRIVATE RECOMP_FLAT_MEMORY)
+endif()
+set(GEN_OPT "-O2" CACHE STRING "optimisation for the generated C")
+set_source_files_properties(${GEN_SOURCES} PROPERTIES COMPILE_OPTIONS "-w;${GEN_OPT};-fno-strict-aliasing")
+set_source_files_properties(${HLE_SOURCES} PROPERTIES COMPILE_OPTIONS "-w;-O2;-fno-strict-aliasing")
+set_source_files_properties(${HOST_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-O2")
+
+if(MTM_TRACE)
+  target_compile_definitions(mtm PRIVATE RECOMP_TRACE=1)
+endif()
+
+else()
+  message(FATAL_ERROR "MTM_HOST is native32 or win32hle, not ${MTM_HOST}")
 endif()

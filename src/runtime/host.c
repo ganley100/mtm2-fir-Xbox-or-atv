@@ -23,6 +23,7 @@
 #include "ddraw_host.h"
 #include "present.h"
 #include "pad.h"
+#include "pad_map.h"
 
 extern const uint32_t mtm_entry_va;       /* recomp_dispatch.c */
 
@@ -82,24 +83,8 @@ static void shim_MessageBoxA(void) {
 static struct { int vk, x, y; DWORD at, hold; } g_in[MAX_INPUT];
 static int g_nin;
 static volatile LONG g_held[256];
-int host_vk(const char* s) {
-    static const struct { const char* n; int vk; } names[] = {
-        {"UP", VK_UP}, {"DOWN", VK_DOWN}, {"LEFT", VK_LEFT}, {"RIGHT", VK_RIGHT},
-        {"SPACE", VK_SPACE}, {"ENTER", VK_RETURN}, {"ESC", VK_ESCAPE}, {"SHIFT", VK_SHIFT},
-        {"CTRL", VK_CONTROL}, {"ALT", VK_MENU}, {"TAB", VK_TAB}, {"LBUTTON", VK_LBUTTON},
-        {"BACKSPACE", VK_BACK}, {"INSERT", VK_INSERT}, {"DELETE", VK_DELETE},
-        {"HOME", VK_HOME}, {"END", VK_END}, {"PGUP", VK_PRIOR}, {"PGDN", VK_NEXT},
-        {"PAUSE", VK_PAUSE},
-        {"NUM0", VK_NUMPAD0}, {"NUM1", VK_NUMPAD1}, {"NUM2", VK_NUMPAD2}, {"NUM3", VK_NUMPAD3},
-        {"NUM4", VK_NUMPAD4}, {"NUM5", VK_NUMPAD5}, {"NUM6", VK_NUMPAD6}, {"NUM7", VK_NUMPAD7},
-        {"NUM8", VK_NUMPAD8}, {"NUM9", VK_NUMPAD9},
-        {"NONE", 0}};
-    for (int i = 0; i < (int)(sizeof names / sizeof names[0]); i++)
-        if (!_stricmp(s, names[i].n)) return names[i].vk;
-    if ((s[0] == 'F' || s[0] == 'f') && atoi(s + 1) >= 1 && atoi(s + 1) <= 12) return VK_F1 + atoi(s + 1) - 1;
-    if (s[0] && !s[1]) return toupper((unsigned char)s[0]);
-    return (int)strtol(s, NULL, 0);
-}
+/* The key names live with the controller mapping (pad_map.c), one table for both. */
+int host_vk(const char* s) { return pad_vk(s); }
 static int parse_key(const char* arg) {
     char name[16];
     unsigned at = 0, hold = 100;

@@ -26,6 +26,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
   `config/controller.ini`, copied beside `mtm.exe` by the build; `--pad FILE`
   and `--no-pad` on the command line.
 
+- Android TV build (not yet run on a device): the portable host
+  `src/portable/` runs the lift on pcrecomp's `win32hle` (SDL2), with shims
+  for what MTM2 needs that it lacks (Smacker calls answer 0 so the intros
+  are skipped, a device-less DirectInput, a logged `ChangeDisplaySettingsA`).
+  `android/` is the Gradle project (`armeabi-v7a`, TV launcher and banner).
+  `CMakeLists.txt` picks the host with `MTM_HOST`; `MTM_NO_LIFT` builds
+  without the lift to check a toolchain. docs/android.md.
+- The controller mapping is shared code (`src/pad/pad_map.c`): XInput on
+  Windows, SDL game controllers and the TV remote on Android.
+
 ### Fixed
 - Headless, a dialog that opens off the main window ("Before You Begin" opened
   on another monitor) is centred on it, so the recording shows it where it

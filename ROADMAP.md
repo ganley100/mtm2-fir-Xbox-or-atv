@@ -9,6 +9,10 @@
 - `Setup.cmd` Quick start (REPO_RULES section 5), the same steps as the README's Step by step.
 - A conformance harness: milestones (intro, title menu, race start) checked from a headless run.
 
+- Android TV: build the APK and run it on a device, then write the Windows
+  calls the first runs stop on. A pointer drawn over the picture for cursor
+  mode without a mouse, and Smacker intros on ffmpeg (docs/android.md).
+
 ## Later
 - Hardware renderers: `TRID3D.DLL` natively, or a host Direct3D.
 - Monster Truck Madness 1 (1996): unpack its ACME cabinets first.

@@ -1,9 +1,10 @@
-/* A game controller (XInput) turned into the keys and mouse the game reads:
- * pad.c. controller.ini says which button is which key. */
+/* A game controller (XInput) on the Windows host: pad.c, with the mapping
+ * from controller.ini in ../pad/pad_map.c. */
 #pragma once
 
-/* Read the mapping from ini (NULL: controller.ini next to mtm.exe) and start
- * polling. Returns 0 if XInput is missing; the game then runs without a pad. */
+/* Read the mapping from ini (NULL: controller.ini next to mtm.exe; the
+ * built-in mapping if there is none) and start polling. Returns 0 if XInput
+ * is missing; the game then runs without a pad. */
 int pad_start(const char* ini);
 
 /* host.c: a key name as --key takes it ("UP", "ENTER", "F4", "A", "0x20"). */
