@@ -14,6 +14,11 @@ foreach(v SDL2_UWP_BUILD SDL2_SOURCE SDL_TTF_SOURCE)
   endif()
 endforeach()
 
+# A UWP app links WindowsApp.lib (MTM_XBOX adds it), not the desktop's
+# kernel32, user32, gdi32, winspool ... that CMake gives an MSVC program.
+set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
+set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
+
 # Everything here is a UWP app's code.
 add_compile_definitions(WINAPI_FAMILY=WINAPI_FAMILY_APP _WIN32_WINNT=0x0A00 _CRT_SECURE_NO_WARNINGS)
 

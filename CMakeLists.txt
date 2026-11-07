@@ -161,7 +161,7 @@ list(APPEND HLE_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/hle/gdidc.c")
 
 set(HOST_SOURCES src/portable/mtm_hle.c src/portable/pad_sdl.c src/pad/pad_map.c)
 if(MTM_XBOX)
-  list(APPEND HOST_SOURCES src/xbox/xbox_main.c src/xbox/compat/compat.c)
+  list(APPEND HOST_SOURCES src/xbox/xbox_main.c src/xbox/compat/compat.c src/xbox/no_wsock.c)
 endif()
 if(ANDROID)
   # SDLActivity loads the game as libmain.so and calls its SDL_main.
@@ -228,7 +228,7 @@ else()
 endif()
 if(MTM_XBOX)                             # after the options above, which would replace it
   set_property(SOURCE ${HLE_SOURCES} src/portable/mtm_hle.c src/portable/pad_sdl.c src/xbox/xbox_main.c
-               APPEND PROPERTY COMPILE_OPTIONS "/FI${MTM_ROOT}/src/xbox/compat/xbox_compat.h")
+               src/xbox/no_wsock.c APPEND PROPERTY COMPILE_OPTIONS "/FI${MTM_ROOT}/src/xbox/compat/xbox_compat.h")
 endif()
 
 if(MTM_TRACE)
