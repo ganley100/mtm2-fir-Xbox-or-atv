@@ -18,6 +18,11 @@ set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 add_subdirectory("${DEPS}/SDL" SDL)
 
+# SDL2_ttf built static looks for SDL2::SDL2-static; SDL2 here is the shared
+# library SDLActivity loads, which libmain.so (and so SDL2_ttf in it) links.
+if(NOT TARGET SDL2::SDL2-static)
+  add_library(SDL2::SDL2-static ALIAS SDL2)
+endif()
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(SDL2TTF_VENDORED ON CACHE BOOL "" FORCE)
 set(SDL2TTF_HARFBUZZ OFF CACHE BOOL "" FORCE)
