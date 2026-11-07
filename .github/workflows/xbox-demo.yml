@@ -46,7 +46,7 @@ jobs:
             Write-Error 'No MTM2_TRIAL_URL secret: add a direct download link to MtM2trial.EXE (Settings -> Secrets and variables -> Actions).'
             exit 1
           }
-          if (-not $env:ARTIFACT_PASSWORD -or $env:ARTIFACT_PASSWORD.Length -lt 12) {
+          if (-not $env:ARTIFACT_PASSWORD -or $env:ARTIFACT_PASSWORD.Trim().Length -lt 12) {
             Write-Error 'No MTM2_ARTIFACT_PASSWORD secret of 12 characters or more: the package is only uploaded encrypted with it.'
             exit 1
           }
@@ -71,7 +71,7 @@ jobs:
           TRIAL_URL: ${{ secrets.MTM2_TRIAL_URL }}
         run: |
           New-Item -ItemType Directory -Force trial | Out-Null
-          Invoke-WebRequest $env:TRIAL_URL -OutFile trial/MtM2trial.EXE
+          Invoke-WebRequest $env:TRIAL_URL.Trim() -OutFile trial/MtM2trial.EXE
           $sha = (Get-FileHash trial/MtM2trial.EXE -Algorithm SHA256).Hash.ToLower()
           if ($sha -ne $env:TRIAL_SHA256) {
             Write-Error "MtM2trial.EXE from the link is not the trial this was built against (SHA-256 $sha)"
@@ -118,7 +118,10 @@ jobs:
           ARTIFACT_PASSWORD: ${{ secrets.MTM2_ARTIFACT_PASSWORD }}
         run: |
           New-Item -ItemType Directory -Force sealed | Out-Null
-          & 7z a -t7z -mx=5 -mhe=on "-p$env:ARTIFACT_PASSWORD" sealed/mtm2-xbox-demo.7z ./mtm/xbox/out/* | Out-Null
+          # Trimmed: a secret pasted on a phone easily carries a line break,
+          # which 7-Zip would take as part of the password.
+          $pw = $env:ARTIFACT_PASSWORD.Trim()
+          & 7z a -t7z -mx=5 -mhe=on "-p$pw" sealed/mtm2-xbox-demo.7z ./mtm/xbox/out/* | Out-Null
           if ($LASTEXITCODE -ne 0) { Write-Error '7-Zip failed'; exit 1 }
           Remove-Item -Recurse -Force mtm/xbox/out, mtm/game-demo, mtm/src/recomp/gen-demo, trial
           Get-ChildItem sealed
