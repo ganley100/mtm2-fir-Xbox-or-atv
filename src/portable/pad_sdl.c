@@ -122,7 +122,7 @@ void pad_sdl_poll(void) {
         s.rx = SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_RIGHTX);
         s.ry = -1 - SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_RIGHTY);
     }
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__WINRT__)
     int focused = 1;                      /* SDL pauses the app when it is not in front */
 #else
     int focused = SDL_GetKeyboardFocus() != NULL;
@@ -133,7 +133,11 @@ void pad_sdl_poll(void) {
 int pad_sdl_key(int sc, int down) {
     switch (sc) {
     case SDL_SCANCODE_SELECT:  out_key(0x0D, down); return 1;   /* the remote's centre button: ENTER */
+#ifdef __WINRT__
+    case SDL_SCANCODE_AC_BACK: return 1;     /* Xbox: that is the pad's B, which controller.ini already maps */
+#else
     case SDL_SCANCODE_AC_BACK: out_key(0x1B, down); return 1;   /* its back button: ESC */
+#endif
     default: return 0;
     }
 }

@@ -33,6 +33,9 @@
 #include "pe_loader.h"
 #include "host.h"
 #include "pad_sdl.h"
+#ifdef MTM_XBOX
+#include "xbox_main.h"
+#endif
 
 /* The guest's 32-bit world: these are Win32's values, by number. */
 #define DISP_CHANGE_SUCCESSFUL 0
@@ -192,11 +195,20 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    static char gamedir[1024];
+    static char gamedir[1024], overlay[1024];
+    overlay[0] = 0;
+#ifdef MTM_XBOX
+    fullscreen = 1;
+    static char fonts[1024];
+    int xbox_found = xbox_setup(gamedir, sizeof gamedir, overlay, sizeof overlay, fonts, sizeof fonts);
+    if (game) snprintf(gamedir, sizeof gamedir, "%s", game);
+#endif
     if (game) {
         snprintf(gamedir, sizeof gamedir, "%s", game);
     } else {
-#ifdef __ANDROID__
+#ifdef MTM_XBOX
+        /* xbox_setup chose it */
+#elif defined(__ANDROID__)
         const char* ext = SDL_AndroidGetExternalStoragePath();   /* /sdcard/Android/data/<package>/files */
         snprintf(gamedir, sizeof gamedir, "%s/game", ext ? ext : ".");
 #else
@@ -215,14 +227,27 @@ int main(int argc, char** argv) {
     }
     if (!exe[0]) {
         char msg[1600];
+#ifdef MTM_XBOX
+        (void)xbox_found;
+        snprintf(msg, sizeof msg,
+                 "Monster.exe is not in the app's folder.\n\n"
+                 "Upload the folder made by tools/gamefiles.py to LocalState\\game with the "
+                 "Device Portal's File explorer, or build the package with it inside "
+                 "(xbox/package.ps1 -Game). docs/xbox.md has the steps.\n\n%s", gamedir);
+#else
         snprintf(msg, sizeof msg,
                  "Monster.exe is not in\n%s\n\n"
                  "Copy the folder made by tools/gamefiles.py there, e.g.\n"
                  "adb push %s/. \"%s/\"", gamedir, MTM_GAME_DIR, gamedir);
+#endif
         fail(MTM_TITLE ": no game files", msg);
         return 1;
     }
+#ifdef MTM_XBOX
+    snprintf(mtm_font_dir, sizeof mtm_font_dir, "%s", fonts);
+#else
     snprintf(mtm_font_dir, sizeof mtm_font_dir, "%s/fonts/", gamedir);
+#endif
 
     static char ini[1100];
     if (!pad_ini) { snprintf(ini, sizeof ini, "%s/controller.ini", gamedir); pad_ini = ini; }
@@ -234,6 +259,7 @@ int main(int argc, char** argv) {
      * current folder, and sees the game folder as C:\. */
     if (chdir(gamedir) != 0) { fail(MTM_TITLE, "cannot enter the game folder"); return 1; }
     hle_set_drive('C', gamedir);
+    if (overlay[0]) hle_set_overlay(gamedir, overlay);    /* a read-only game folder: writes go here */
 
     recomp_host_init();
     win32hle_register(g_mtm_shims);

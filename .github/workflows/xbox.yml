@@ -1,0 +1,82 @@
+# Xbox Dev Mode packages (UWP x64): SDL2 for UWP with MSVC, then SDL2_ttf,
+# pcrecomp's win32hle, the compatibility layer and the host with clang-cl,
+# packaged as .msix by xbox/build.ps1 and xbox/package.ps1, for the full game
+# and the demo.
+#
+# As for Android, the lift is never in this repository, so CI builds with
+# MTM_NO_LIFT=ON: the packages install and start, then say they have no game
+# code. They check the toolchain, the build and the packaging; a playable
+# package is built locally (docs/xbox.md).
+name: Xbox package
+
+on:
+  push:
+    paths:
+      - 'xbox/**'
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/xbox.yml'
+  pull_request:
+    paths:
+      - 'xbox/**'
+      - 'src/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/xbox.yml'
+  workflow_dispatch:
+    inputs:
+      pcrecomp_ref:
+        description: 'pcrecomp commit, branch or tag'
+        default: '2adc02fec0702933325801aa7b29a7646321857f'
+
+permissions:
+  contents: read
+
+env:
+  PCRECOMP_REF: ${{ github.event.inputs.pcrecomp_ref || '2adc02fec0702933325801aa7b29a7646321857f' }}
+
+jobs:
+  msix:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mtm
+
+      - uses: actions/checkout@v4
+        with:
+          repository: sp00nznet/pcrecomp
+          ref: ${{ env.PCRECOMP_REF }}
+          path: pcrecomp
+
+      # The front end's text is Arial and MS Sans Serif; Liberation Sans has
+      # their metrics (SIL Open Font License, its LICENSE goes along).
+      - name: Liberation fonts
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $url = 'https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz'
+          Invoke-WebRequest $url -OutFile fonts.tgz
+          tar -xzf fonts.tgz
+          New-Item -ItemType Directory -Force mtm/xbox/fonts | Out-Null
+          Copy-Item liberation-fonts-ttf-2.1.5/*.ttf, liberation-fonts-ttf-2.1.5/LICENSE mtm/xbox/fonts/
+          Get-ChildItem mtm/xbox/fonts
+
+      - name: Build (no lift)
+        shell: pwsh
+        run: |
+          mtm/xbox/build.ps1 -Variant full -NoLift -Pcrecomp pcrecomp
+          mtm/xbox/build.ps1 -Variant demo -NoLift -Pcrecomp pcrecomp
+
+      - name: Package
+        shell: pwsh
+        run: |
+          mtm/xbox/package.ps1 -Variant full
+          mtm/xbox/package.ps1 -Variant demo
+          Get-ChildItem mtm/xbox/out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mtm2-xbox-nolift-${{ github.sha }}
+          path: mtm/xbox/out/*
+          if-no-files-found: error

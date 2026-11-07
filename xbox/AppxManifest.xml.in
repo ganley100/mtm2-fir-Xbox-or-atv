@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monster Truck Madness 2 for Xbox Dev Mode: a UWP app (package.ps1 fills
+     in @NAME@, @TITLE@ and @VERSION@). The publisher matches the certificate
+     package.ps1 makes. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  IgnorableNamespaces="uap">
+
+  <Identity Name="@NAME@" Publisher="CN=MTM2Recomp" Version="@VERSION@" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>@TITLE@</DisplayName>
+    <PublisherDisplayName>MTM2 Recomp</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <!-- vcruntime140_app.dll, for SDL2.dll and mtm.exe -->
+    <PackageDependency Name="Microsoft.VCLibs.140.00" MinVersion="14.0.30704.0"
+      Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="mtm.exe" EntryPoint="MTM2.App">
+      <uap:VisualElements DisplayName="@TITLE@" Description="@TITLE@, statically recompiled"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#1A1414" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+</Package>
