@@ -51,6 +51,20 @@ Compiling the lift (2.46M lines of C) takes a while. Two settings help, in
 code; on 64-bit the game's 32-bit memory is one 4 GB block instead of
 addresses taken as they are.
 
+## The banner
+
+The TV home screen shows a 640x360 banner. The built-in one is plain. To use
+your own box art, run this before building:
+
+```
+py -3 tools/make_banner.py boxart.jpg --top 12
+```
+
+It crops a 16:9 piece from the top of the picture, which on the box front
+is the title, above the ratings and publisher logos. It writes the crop to
+`android/banner/`, and the build uses it in place of the built-in banner.
+That folder is gitignored, so the artwork stays out of the repository.
+
 ## Install and copy the game
 
 ```

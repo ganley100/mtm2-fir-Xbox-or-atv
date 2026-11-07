@@ -47,6 +47,10 @@ android {
     sourceSets {
         // SDLActivity and friends, from the SDL2 checkout (android/fetch-deps.sh).
         main.java.srcDirs += '../deps/SDL/android-project/app/src/main/java'
+        // The launcher banner: yours from tools/make_banner.py (android/banner,
+        // gitignored) when it is there, else the plain built-in one.
+        main.res.srcDirs += file('../banner/res/drawable-xhdpi/banner.png').exists()
+                ? '../banner/res' : 'src/main/res-banner'
     }
 
     compileOptions {

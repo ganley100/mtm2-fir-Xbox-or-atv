@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Make the Android TV banner from your own picture (box art, a screenshot).
+
+    py -3 tools/make_banner.py boxart.jpg [--top Y] [--left X] [--width W]
+
+Crops a 16:9 piece of the picture (the full width from the top by default,
+where a box front has its title, above the ratings and publisher logos at
+the bottom) and writes it at the launcher's size, 640x360, to
+android/banner/res/drawable-xhdpi/banner.png. The APK build uses that file
+in place of the plain built-in banner when it is there.
+
+android/banner/ is gitignored: box art is the publisher's, and this repo
+ships nothing of the game's (README, "What is not in this repo").
+Needs Pillow (py -3 -m pip install pillow).
+"""
+import argparse
+import os
+import sys
+
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, '..', 'android', 'banner', 'res', 'drawable-xhdpi', 'banner.png')
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap.add_argument('image')
+    ap.add_argument('--top', type=int, default=0, help='first row of the crop, in source pixels')
+    ap.add_argument('--left', type=int, default=0, help='first column of the crop')
+    ap.add_argument('--width', type=int, default=0, help='crop width (default: the rest of the picture)')
+    ap.add_argument('--out', default=OUT)
+    a = ap.parse_args()
+
+    im = Image.open(a.image).convert('RGB')
+    w = a.width or im.width - a.left
+    h = round(w * 9 / 16)
+    if a.left + w > im.width or a.top + h > im.height:
+        sys.exit('a 16:9 crop of width %d from (%d,%d) does not fit in %dx%d'
+                 % (w, a.left, a.top, im.width, im.height))
+    banner = im.crop((a.left, a.top, a.left + w, a.top + h)).resize((640, 360), Image.LANCZOS)
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+    banner.save(a.out, optimize=True)
+    print('banner: %dx%d from (%d,%d) -> %s' % (w, h, a.left, a.top, os.path.normpath(a.out)))
+
+if __name__ == '__main__':
+    main()
